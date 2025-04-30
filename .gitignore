@@ -1,0 +1,13 @@
+# modulos do node
+node_modules/
+
+# ambiente local
+.env
+
+# sessoes do whatsapp
+.wwebjs_cache/
+.wwebjs_auth/
+
+# dados persistentes
+/src/data/*.json
+!/src/data/wordle.words.json

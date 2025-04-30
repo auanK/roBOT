@@ -1,0 +1,20 @@
+{
+  "name": "robot",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --watch .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "is-online": "^11.0.0",
+    "node-cron": "^3.0.3",
+    "puppeteer": "^18.2.1",
+    "qrcode-terminal": "^0.12.0",
+    "uuid": "^11.1.0",
+    "whatsapp-web.js": "^1.27.0"
+  }
+}
