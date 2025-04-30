@@ -7,7 +7,7 @@ import { registerGroup } from "../../utils/groupService.js";
 
 const totalLives = 3;
 
-// Inicia uma partida de Shot no grupo
+// Inicia uma partida de Shot no grupo´
 export async function handleStart(message, playerId) {
   // Identificação do grupo e da sessão
   const chat = await message.getChat();
@@ -50,6 +50,7 @@ export async function handleStart(message, playerId) {
       nickname,
       status: "alive",
       lives: totalLives,
+      items: [],
     });
 
     // Adiciona o jogador à lista de jogadores
@@ -176,6 +177,61 @@ export async function handleShoot(message, playerId, args) {
   return await chat.sendMessage(msg);
 }
 
+// Lida com o uso de items
+export async function handleUseItem(message, playerId, args) {
+  const chat = await message.getChat();
+  const groupId = chat.id._serialized;
+  const session = getShotSession(groupId);
+
+  if (!session.started)
+    return await message.reply("⛔ O jogo ainda não começou.");
+
+  if (!session.players.has(playerId))
+    return await message.reply("❌ Você não está no jogo.");
+
+  const player = session.players.get(playerId);
+  if (player.status === "dead")
+    return await message.reply("☠️ Você já morreu.");
+
+  const item = args[1]?.toLowerCase();
+
+  if (!item) {
+    return await message.reply("❗ Uso: *!shot use <item>*");
+  }
+
+  if (!player.items.includes(item)) {
+    return await message.reply("❌ Item inválido.");
+  }
+
+  let msg = "";
+  switch (item) {
+    case "pill":
+      if (player.lives >= totalLives)
+        return await message.reply("❤️ Sua vida já está cheia.");
+      player.lives += 1;
+      msg = `💊 *${player.nickname}* usou uma pílula e ganhou uma vida!`;
+      break;
+    case "scope":
+      const bullet = session.barrel[session.currentBarrelIndex];
+      const bulletText = bullet === "live" ? "cheia" : "vazia";
+      msg = `🔍 *${player.nickname}* usou uma lupa e descobriu que a próxima bala é ${bulletText}!`;
+      break;
+    case "double-barrel":
+      if (player.doubleBarrelReady) {
+        return await message.reply("❗ Você já usou o cano duplo.");
+      }
+      player.doubleBarrelReady = true;
+      msg = `🔫 *${player.nickname}* usou o cano duplo! O próximo tiro causará dano dobrado.`;
+      break;;
+    default:
+      return await message.reply("❗ Você não tem esse item.");
+  }
+
+  player.items.splice(player.items.indexOf(item), 1);
+  return await message.reply(msg);
+}
+
+
 // Envia o status do jogo
 export async function handleStatus(message) {
   const groupId = (await message.getChat()).id._serialized;
@@ -206,6 +262,7 @@ export async function sendHelp(message) {
     `
 📝 *Comandos do Shot (Roleta Russa):*
 • \`!shot start @j1 @j2 @j3\`
+• \`!shot use <item>\`
 • \`!shot shoot @alvo\` ou \`self\`
 • \`!shot status\`
 • \`!shot reset\`

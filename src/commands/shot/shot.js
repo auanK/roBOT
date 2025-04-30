@@ -1,6 +1,7 @@
 import {
   handleStart,
   handleShoot,
+  handleUseItem,
   handleStatus,
   handleReset,
   sendHelp,
@@ -12,7 +13,7 @@ export default {
   name: "shot",
   description: "Jogo da Roleta Russa entre até 4 jogadores.",
   usage:
-    "!shot start @j1 @j2 ... | shoot @alvo | status | reset",
+    "!shot start @j1 @j2 ... | shoot @alvo | use | status | reset",
 
   run: async ({message, args}) => {
     if (!(await isGroupMessage(message))) {
@@ -27,6 +28,8 @@ export default {
         return await handleStart(message, playerId, args);
       case "shoot":
         return await handleShoot(message, playerId, args);
+      case "use":
+        return await handleUseItem(message, playerId, args);
       case "status":
         return await handleStatus(message);
       case "reset":

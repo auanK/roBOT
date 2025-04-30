@@ -19,5 +19,6 @@ function createEmptySession() {
     players: new Map(),
     turnOrder: [],
     currentTurnIndex: 0,
+    roundCount: 0,
   };
 }

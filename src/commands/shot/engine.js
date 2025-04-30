@@ -1,4 +1,5 @@
 import { generateBarrel } from "./utils.js";
+import { getRandomItem } from "./utils.js";
 
 export function shoot(session, targetId) {
   const bullet = session.barrel[session.currentBarrelIndex++];
@@ -8,8 +9,17 @@ export function shoot(session, targetId) {
   let damageApplied = false;
 
   if (bullet === "live") {
-    target.lives -= 1;
+    const shooterId = getCurrentPlayerId(session);
+    const shooter = session.players.get(shooterId);
+    const damage = shooter.doubleBarrelReady ? 2 : 1;
+
+    target.lives -= damage;
     damageApplied = true;
+
+    if (shooter.doubleBarrelReady) {
+      shooter.doubleBarrelReady = false;
+    }
+
     if (target.lives <= 0) {
       target.status = "dead";
       fatal = true;
@@ -46,14 +56,21 @@ export function nextTurn(session) {
   let i = session.currentTurnIndex;
   for (let j = 0; j < session.turnOrder.length; j++) {
     i = (i + 1) % session.turnOrder.length;
-    const p = session.players.get(session.turnOrder[i]);
-    if (p.status === "alive") {
+    const playerId = session.turnOrder[i];
+    const player = session.players.get(playerId);
+    if (player.status === "alive") {
       session.currentTurnIndex = i;
-      return;
+
+      if (session.roundCount >= 1) {
+        const item = getRandomItem();
+        player.items.push(item);
+      }
+
+      session.roundCount++;
+      return playerId;
     }
   }
 }
-
 export function getCurrentPlayerId(session) {
   return session.turnOrder[session.currentTurnIndex];
 }

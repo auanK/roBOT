@@ -1,3 +1,13 @@
+export const ITEM_LIST = ["pill", "scope", "double-barrel"];
+export function getRandomItem() {
+  const randomIndex = Math.floor(Math.random() * ITEM_LIST.length);
+  return ITEM_LIST[randomIndex];
+}
+
+export function addItemToPlayer(player, item) {
+  player.items.push(item);
+}
+
 // Gera o tambor com 6 balas, com chance maior para 3 ou 4 balas cheias
 export function generateBarrel() {
   const possibleLiveCounts = [1, 2, 3, 4, 5];
@@ -45,12 +55,13 @@ export function extractMentionedIds(message) {
   return mentioned;
 }
 
-// Forma a mensagem de status de vidas dos jogadores
+// Forma a mensagem de status de vidas dos jogadores e os itens.
 export function formatLivesStatus(playersMap, totalLives) {
   return Array.from(playersMap.entries()).map(([_, player]) => {
-    const { nickname, lives } = player;
+    const { nickname, lives, items } = player;
     const hearts = "❤️".repeat(lives);
     const skulls = "☠️".repeat(Math.max(0, totalLives - lives));
-    return `• ${nickname}: ${hearts}${skulls}`;
+    const itemList = items?.length ? ` | 🎒 ${items.join(", ")}` : "";
+    return `• ${nickname}: ${hearts}${skulls}${itemList}`;
   }).join("\n");
 }
