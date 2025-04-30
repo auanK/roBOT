@@ -1,5 +1,8 @@
 import fetch from "node-fetch";
 
+import dotenv from "dotenv";
+dotenv.config();
+
 const API_KEY = process.env.OPENWEATHER_API_KEY;
 
 // Com base no clima retorna um emoji apropriado
@@ -33,6 +36,7 @@ export async function formatWeather(city) {
     )} — ${weather[0].description}`;
   } catch (err) {
     console.error(`Erro ao obter clima de ${city}:`, err.message);
+    console.log(API_KEY);
     return `• ${city}: erro ao obter clima`;
   }
 }
