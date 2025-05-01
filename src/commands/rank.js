@@ -1,6 +1,7 @@
 import { loadStats } from "../utils/statsService.js";
 import { loadUsers } from "../utils/userService.js";
-import { isGroupMessage } from "../utils/groupService.js";
+import { isGroupMessage, getGroupAlias } from "../utils/groupService.js";
+import { get } from "http";
 
 export default {
   name: "rank",
@@ -13,7 +14,8 @@ export default {
     }
 
     const chat = await message.getChat();
-    const groupId = chat.id._serialized;
+    const rawGroupId = chat.id._serialized;
+    const groupId = await getGroupAlias(rawGroupId);
 
     const stats = await loadStats();
     const users = await loadUsers();

@@ -9,12 +9,13 @@ import { getWordleSession, resetWordleSession } from "./session.js";
 import { checkGuess, getFeedback } from "./engine.js";
 import { addPoints } from "../../utils/statsService.js";
 import { registerUser } from "../../utils/userService.js";
-import { registerGroup } from "../../utils/groupService.js";
+import { registerGroup, getGroupAlias } from "../../utils/groupService.js";
 
 // Inicia uma partida de Wordle no grupo
 export async function handleStart(message, playerId) {
   const chat = await message.getChat();
-  const groupId = chat.id._serialized;
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
   const session = getWordleSession(groupId);
   const today = getTodayDate();
 
@@ -39,7 +40,7 @@ export async function handleStart(message, playerId) {
   const secretWord = words[Math.floor(Math.random() * words.length)];
 
   if (!data[groupId]) data[groupId] = {};
-  
+
   data[groupId][today] = {
     word: secretWord,
     guesses: [],
@@ -72,7 +73,10 @@ export async function handleStart(message, playerId) {
 }
 
 export async function handleGuess(message, playerId) {
-  const groupId = (await message.getChat()).id._serialized;
+  const chat = await message.getChat();
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
+
   const session = getWordleSession(groupId);
   const data = await loadGameData();
   const game = data[groupId]?.[session.date];

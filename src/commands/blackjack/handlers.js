@@ -3,17 +3,16 @@ import { createDeck, calculateTotal, extractMentionedIds } from "./utils.js";
 import { dealerPlay, getWinners, isGameOver } from "./engine.js";
 import { addPoints } from "../../utils/statsService.js";
 import { registerUser } from "../../utils/userService.js";
-import { registerGroup } from "../../utils/groupService.js";
+import { registerGroup, getGroupAlias } from "../../utils/groupService.js";
 
 export async function handleStart(message, playerId) {
   const chat = await message.getChat();
-  const groupId = chat.id._serialized;
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
   const session = getBlackjackSession(groupId);
 
   if (session.started) {
-    return await message.reply(
-      "⚠️ Já existe uma partida de Blackjack em andamento!"
-    );
+    return await message.reply("⚠️ Já existe uma partida de Blackjack em andamento!");
   }
 
   const mentioned = extractMentionedIds(message);
@@ -66,9 +65,10 @@ export async function handleStart(message, playerId) {
   return await chat.sendMessage(`🃏 Jogo iniciado!\nJogadores: ${playerList}`);
 }
 
-export async function handleDraw (message, playerId) {
+export async function handleDraw(message, playerId) {
   const chat = await message.getChat();
-  const groupId = chat.id._serialized;
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
   const session = getBlackjackSession(groupId);
 
   if (!session.started) return await message.reply("⛔ Jogo não iniciado.");
@@ -98,7 +98,8 @@ export async function handleDraw (message, playerId) {
 
 export async function handleStand(message, playerId) {
   const chat = await message.getChat();
-  const groupId = chat.id._serialized;
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
   const session = getBlackjackSession(groupId);
 
   const player = session.players.get(playerId);
@@ -135,7 +136,8 @@ export async function handleReset(message) {
 
 export async function sendResults(message, session) {
   const chat = await message.getChat();
-  const groupId = chat.id._serialized;
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
 
   dealerPlay(session);
   const winners = getWinners(session);

@@ -3,15 +3,15 @@ import { shoot, nextTurn, getCurrentPlayerId } from "./engine.js";
 import { generateBarrel, extractMentionedIds, formatLivesStatus } from "./utils.js";
 import { addPoints } from "../../utils/statsService.js";
 import { registerUser } from "../../utils/userService.js";
-import { registerGroup } from "../../utils/groupService.js";
+import { registerGroup, getGroupAlias } from "../../utils/groupService.js";
 
 const totalLives = 3;
 
 // Inicia uma partida de Shot no grupo´
 export async function handleStart(message, playerId) {
-  // Identificação do grupo e da sessão
   const chat = await message.getChat();
-  const groupId = chat.id._serialized;
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
   const session = getShotSession(groupId);
 
   if (session.started) {
@@ -83,7 +83,8 @@ export async function handleStart(message, playerId) {
 export async function handleShoot(message, playerId, args) {
   // Identificação do grupo e da sessão
   const chat = await message.getChat();
-  const groupId = chat.id._serialized;
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
   const session = getShotSession(groupId);
 
   // Verificações iniciais
@@ -180,7 +181,8 @@ export async function handleShoot(message, playerId, args) {
 // Lida com o uso de items
 export async function handleUseItem(message, playerId, args) {
   const chat = await message.getChat();
-  const groupId = chat.id._serialized;
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
   const session = getShotSession(groupId);
 
   if (!session.started)
