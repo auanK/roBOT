@@ -113,7 +113,9 @@ export async function handleStand(message, playerId) {
 }
 
 export async function handleStatus(message) {
-  const groupId = (await message.getChat()).id._serialized;
+  const chat = await message.getChat();
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
   const session = getBlackjackSession(groupId);
 
   if (!session.started)
@@ -129,7 +131,9 @@ export async function handleStatus(message) {
 }
 
 export async function handleReset(message) {
-  const groupId = (await message.getChat()).id._serialized;
+  const chat = await message.getChat();
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
   resetBlackjackSession(groupId);
   return await message.reply("♻️ Blackjack reiniciado.");
 }

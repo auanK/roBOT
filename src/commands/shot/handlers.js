@@ -236,7 +236,9 @@ export async function handleUseItem(message, playerId, args) {
 
 // Envia o status do jogo
 export async function handleStatus(message) {
-  const groupId = (await message.getChat()).id._serialized;
+  const chat = await message.getChat();
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
   const session = getShotSession(groupId);
 
   if (!session.started)
@@ -253,7 +255,8 @@ export async function handleStatus(message) {
 
 // Reseta a sessão do jogo
 export async function handleReset(message) {
-  const groupId = (await message.getChat()).id._serialized;
+  const rawGroupId = (await message.getChat()).id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
   resetShotSession(groupId);
   return await message.reply("♻️ Jogo resetado.");
 }

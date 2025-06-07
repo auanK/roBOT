@@ -149,7 +149,9 @@ export async function handleGuess(message, playerId) {
 }
 
 export async function handleStatus(message) {
-  const groupId = (await message.getChat()).id._serialized;
+  const chat = await message.getChat();
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
   const session = getWordleSession(groupId);
   const data = await loadGameData();
   const game = data[groupId]?.[session.date];
@@ -173,7 +175,9 @@ export async function handleStatus(message) {
 }
 
 export async function handleReset(message) {
-  const groupId = (await message.getChat()).id._serialized;
+  const chat = await message.getChat();
+  const rawGroupId = chat.id._serialized;
+  const groupId = await getGroupAlias(rawGroupId);
   const session = getWordleSession(groupId);
   const data = await loadGameData();
 
