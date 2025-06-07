@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const statsPath = path.join(__dirname, "../data/stats.messages.json");
 
-export async function loadStats() {
+export async function loadMessageStats() {
   try {
     const data = await readFile(statsPath, "utf8");
     return JSON.parse(data);
@@ -19,7 +19,7 @@ export async function saveStats(data) {
 }
 
 export async function recordMessage(groupId, userId) {
-  const stats = await loadStats();
+  const stats = await loadMessageStats();
   const now = new Date();
 
   const dayOfWeek = now.getDay().toString();

@@ -10,6 +10,7 @@ import wordle from "./wordle/wordle.js";
 import rank from "./rank.js";
 import weather from "./weather.js";
 import nasa from "./nasa.js";
+import stats from "./stats/stats.js";
 
 // Agrupa todos os comandos em um objeto e exporta
 const commands = {
@@ -25,6 +26,7 @@ const commands = {
   rank,
   weather,
   nasa,
+  stats,
 };
 
 export default commands;
