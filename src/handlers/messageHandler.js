@@ -1,6 +1,7 @@
 import commands from "../commands/index.js";
 import { client } from "../client/index.js";
-import { isGroupAuthorized } from "../utils/groupService.js";
+import { getGroupAlias, isGroupAuthorized } from "../utils/groupService.js";
+import { recordMessage } from "../utils/messageStatsService.js";
 
 // Verifica se a mensagem vem de um grupo autorizado
 async function isAuthorized(message) {
@@ -11,7 +12,9 @@ async function isAuthorized(message) {
 
   const isAuthorized = await isGroupAuthorized(chat.id._serialized);
   if (!isAuthorized) {
-    console.log(`🚫 Grupo não autorizado: ${chat.name} (${chat.id._serialized})`);
+    console.log(
+      `🚫 Grupo não autorizado: ${chat.name} (${chat.id._serialized})`
+    );
   }
 
   return isAuthorized;
@@ -50,10 +53,20 @@ async function logMessage(message) {
 export default async function handleMessage(message) {
   const { body } = message;
 
-  if (!body.startsWith("!")) return;
+  // Ignora mensagens enviadas pelo próprio bot e de grupos não autorizados
+  if (message.fromMe || !(await isAuthorized(message))) return;
 
-  // Autoriza a execução do comando
-  if (!(await isAuthorized(message))) return;
+  // Registra a mensagem para estatísticas de grupo
+  const chat = await message.getChat();
+  if (chat.isGroup) {
+    const groupId = await getGroupAlias(chat.id._serialized);
+    const userId = message.author || message.from;
+
+    await recordMessage(groupId, userId);
+  }
+
+  // Se não for um comando, ignora
+  if (!body.startsWith("!")) return;
 
   // Log da mensagem
   await logMessage(message);
