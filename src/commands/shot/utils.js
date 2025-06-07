@@ -1,4 +1,5 @@
 export const ITEM_LIST = ["pill", "scope", "double-barrel"];
+
 export function getRandomItem() {
   const randomIndex = Math.floor(Math.random() * ITEM_LIST.length);
   return ITEM_LIST[randomIndex];
@@ -35,6 +36,7 @@ export function generateBarrel() {
     const j = Math.floor(Math.random() * (i + 1));
     [barrel[i], barrel[j]] = [barrel[j], barrel[i]];
   }
+
   return barrel;
 }
 

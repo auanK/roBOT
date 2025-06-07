@@ -8,23 +8,22 @@ export function shoot(session, targetId) {
   let fatal = false;
   let damageApplied = false;
 
+  const shooterId = getCurrentPlayerId(session);
+  const shooter = session.players.get(shooterId);
+
   if (bullet === "live") {
-    const shooterId = getCurrentPlayerId(session);
-    const shooter = session.players.get(shooterId);
     const damage = shooter.doubleBarrelReady ? 2 : 1;
 
     target.lives -= damage;
     damageApplied = true;
-
-    if (shooter.doubleBarrelReady) {
-      shooter.doubleBarrelReady = false;
-    }
 
     if (target.lives <= 0) {
       target.status = "dead";
       fatal = true;
     }
   }
+
+  shooter.doubleBarrelReady = false;
 
   let reloaded = false;
   let live = 0;
@@ -71,6 +70,7 @@ export function nextTurn(session) {
     }
   }
 }
+
 export function getCurrentPlayerId(session) {
   return session.turnOrder[session.currentTurnIndex];
 }
