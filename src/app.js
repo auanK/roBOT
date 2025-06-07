@@ -1,12 +1,11 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { client } from "./client/index.js";
+import { connectToWhatsApp } from "./client/index.js";
 import { waitForInternet } from "./utils/checkInternet.js";
 import handleMessage from "./handlers/messageHandler.js";
-import onReady from "./handlers/readyHandler.js";
 
-(async () => {
+async function startBot() {
   console.log("Verificando conexão com a internet...");
   const connected = await waitForInternet();
 
@@ -17,8 +16,17 @@ import onReady from "./handlers/readyHandler.js";
 
   console.log("✅ Conexão estabelecida! Iniciando bot...");
 
-  client.on("ready", onReady);
-  client.on("message_create", handleMessage);
+  const sock = await connectToWhatsApp();
 
-  client.initialize();
-})();
+  sock.ev.on("messages.upsert", async (m) => {
+    const message = m.messages[0];
+
+    if (message.key.remoteJid === "status@broadcast" || !message.message) {
+      return;
+    }
+
+    await handleMessage(sock, m);
+  });
+}
+
+startBot();

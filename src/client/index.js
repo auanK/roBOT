@@ -1,27 +1,50 @@
-import pkg from "whatsapp-web.js";
-const { Client, LocalAuth } = pkg;
+import makeWASocket, {
+  useMultiFileAuthState,
+  DisconnectReason,
+  fetchLatestBaileysVersion,
+} from "@whiskeysockets/baileys";
 import qrcode from "qrcode-terminal";
+import pino from "pino";
 
-export const client = new Client({
-  authStrategy: new LocalAuth(),
-  puppeteer: {
-    headless: 'new'
-  }
-});
+export async function connectToWhatsApp() {
+  const { state, saveCreds } = await useMultiFileAuthState("auth_info_baileys");
 
-client.on("qr", qr => {
-  console.log("⚠️ Escaneie o QR Code:");
-  qrcode.generate(qr, { small: true });
-});
+  const { version, isLatest } = await fetchLatestBaileysVersion();
+  console.log(`Usando a versão do Baileys: ${version}, É a mais recente? ${isLatest}`);
 
-client.on("ready", () => {
-  console.log("✅ Bot conectado!");
-});
+  const sock = makeWASocket({
+    version,
+    auth: state,
+    logger: pino({ level: "silent" }),
+    printQRInTerminal: true,
+  });
 
-client.on("auth_failure", msg => {
-  console.error("❌ Falha na autenticação:", msg);
-});
+  sock.ev.on("connection.update", (update) => {
+    const { connection, lastDisconnect, qr } = update;
 
-client.on("disconnected", reason => {
-  console.warn("⚠️ Desconectado:", reason);
-});
+    if (qr) {
+      console.log("⚠️ Escaneie o QR Code abaixo:");
+      qrcode.generate(qr, { small: true });
+    }
+
+    if (connection === "close") {
+      const shouldReconnect =
+        lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
+      console.log(
+        "❌ Conexão fechada. Motivo:",
+        lastDisconnect.error,
+        ". Reconectando:",
+        shouldReconnect
+      );
+      if (shouldReconnect) {
+        connectToWhatsApp();
+      }
+    } else if (connection === "open") {
+      console.log("✅ Conexão aberta, bot está online!");
+    }
+  });
+
+  sock.ev.on("creds.update", saveCreds);
+
+  return sock; o
+}
