@@ -4,6 +4,7 @@ import {
   saveGameData,
   getValidWords,
   extractMentionedIds,
+  normalize
 } from "./utils.js";
 import { getWordleSession, resetWordleSession } from "./session.js";
 import { checkGuess, getFeedback } from "./engine.js";
@@ -105,9 +106,15 @@ export async function handleGuess(message, playerId) {
 
   game.guesses.push(guess);
 
+  const normalizedSecretWord = normalize(game.word);
+
   for (const letter of guess) {
-    if (!game.word.includes(letter) && !game.invalidLetters.includes(letter)) {
-      game.invalidLetters.push(letter);
+    const normalizedLetter = normalize(letter);
+    if (!normalizedSecretWord.includes(normalizedLetter)) {
+      const baseLetter = normalizedLetter.toUpperCase();
+      if (!game.invalidLetters.includes(baseLetter)) {
+        game.invalidLetters.push(baseLetter);
+      }
     }
   }
 
