@@ -7,35 +7,31 @@ import {
   sendHelp,
 } from "./handlers.js";
 
-import { isGroupMessage } from "../../utils/groupService.js";
-
 export default {
   name: "shot",
   description: "Jogo da Roleta Russa entre até 4 jogadores.",
-  usage:
-    "!shot start @j1 @j2 ... | shoot @alvo | use | status | reset",
+  usage: "!shot start @j1 @j2 ... | shoot @alvo | use | status | reset",
 
-  run: async ({message, args}) => {
-    if (!(await isGroupMessage(message))) {
-      return;
-    }
+  run: async ({ sock, message, args, chatId, senderId }) => {
+    if (!chatId.endsWith("@g.us")) return;
 
     const command = args[0]?.toLowerCase();
-    const playerId = message.author || message.from;
+
+    const handlerParams = { sock, message, args, chatId, senderId };
 
     switch (command) {
       case "start":
-        return await handleStart(message, playerId, args);
+        return await handleStart(handlerParams);
       case "shoot":
-        return await handleShoot(message, playerId, args);
+        return await handleShoot(handlerParams);
       case "use":
-        return await handleUseItem(message, playerId, args);
+        return await handleUseItem(handlerParams);
       case "status":
-        return await handleStatus(message);
+        return await handleStatus(handlerParams);
       case "reset":
-        return await handleReset(message);
+        return await handleReset(handlerParams);
       default:
-        return await sendHelp(message);
+        return await sendHelp(handlerParams);
     }
   },
 };

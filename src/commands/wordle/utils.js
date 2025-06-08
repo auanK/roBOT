@@ -35,14 +35,3 @@ export function normalize(str) {
 export function getTodayDate() {
   return new Date().toISOString().slice(0, 10);
 }
-
-export function extractMentionedIds(message) {
-  let mentioned = message.mentionedIds || [];
-  if (!mentioned.length) {
-    const matches = message.body.match(/@(\d{5,})/g);
-    if (matches) {
-      mentioned = matches.map((m) => m.replace("@", "") + "@c.us");
-    }
-  }
-  return mentioned;
-}

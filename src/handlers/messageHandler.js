@@ -1,6 +1,7 @@
 import commands from "../commands/index.js";
 import { getGroupAlias, isGroupAuthorized } from "../utils/groupService.js";
 import { recordMessage } from "../utils/messageStatsService.js";
+import { registerUser, normalizeUserId } from "../utils/userService.js";
 
 // Extrai o body de uma mensagem
 function getMessageBody(message) {
@@ -9,12 +10,6 @@ function getMessageBody(message) {
     message.message?.extendedTextMessage?.text ||
     ""
   );
-}
-
-// Normaliza o ID do usuário para o formato @c.us
-function normalizeUserId(id) {
-  if (!id) return null;
-  return id.replace("@s.whatsapp.net", "@c.us");
 }
 
 // Verifica se a mensagem vem de um grupo autorizado
@@ -80,9 +75,13 @@ export default async function handleMessage(sock, m) {
   const rawSenderId = isGroup ? message.key.participant : message.key.remoteJid;
   const senderId = normalizeUserId(rawSenderId);
 
-  // Registra a mensagem para estatísticas de grupo
+  // Atualiza o nome do usuário se disponível
+  if (senderId && message.pushName) {
+    await registerUser(senderId, message.pushName);
+  }
 
-  if (isGroup && senderId) {
+  // Registra a mensagem para estatísticas de grupo
+  if (isGroup) {
     const groupId = await getGroupAlias(chatId);
     await recordMessage(groupId, senderId);
   }

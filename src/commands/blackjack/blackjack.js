@@ -7,34 +7,31 @@ import {
   sendHelp,
 } from "./handlers.js";
 
-import { isGroupMessage } from "../../utils/groupService.js";
-
 export default {
   name: "blackjack",
   description: "Jogo de Blackjack com múltiplos jogadores.",
   usage: "!blackjack start @j1 @j2 ... | draw | stand | status | reset",
 
-  run: async ({message, args}) => {
-    if (!(await isGroupMessage(message))) {
-      return;
-    }
+  run: async ({ sock, message, args, chatId, senderId }) => {
+    if (!chatId.endsWith("@g.us")) return;
 
     const command = args[0]?.toLowerCase();
-    const playerId = message.author || message.from;
+
+    const handlerParams = { sock, message, args, chatId, senderId };
 
     switch (command) {
       case "start":
-        return await handleStart(message, playerId);
+        return await handleStart(handlerParams);
       case "draw":
-        return await handleDraw(message, playerId);
+        return await handleDraw(handlerParams);
       case "stand":
-        return await handleStand(message, playerId);
+        return await handleStand(handlerParams);
       case "status":
-        return await handleStatus(message);
+        return await handleStatus(handlerParams);
       case "reset":
-        return await handleReset(message);
+        return await handleReset(handlerParams);
       default:
-        return await sendHelp(message);
+        return await sendHelp(handlerParams);
     }
   },
 };

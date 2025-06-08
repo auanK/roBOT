@@ -3,45 +3,56 @@ import {
   loadGameData,
   saveGameData,
   getValidWords,
-  extractMentionedIds,
-  normalize
+  normalize,
 } from "./utils.js";
 import { getWordleSession, resetWordleSession } from "./session.js";
 import { checkGuess, getFeedback } from "./engine.js";
 import { addPoints } from "../../utils/statsService.js";
-import { registerUser } from "../../utils/userService.js";
-import { registerGroup, getGroupAlias } from "../../utils/groupService.js";
+import {
+  registerUser,
+  getUserName,
+  normalizeUserId,
+} from "../../utils/userService.js";
+import { getGroupAlias, registerGroup } from "../../utils/groupService.js";
 
-// Inicia uma partida de Wordle no grupo
-export async function handleStart(message, playerId) {
-  const chat = await message.getChat();
-  const rawGroupId = chat.id._serialized;
-  const groupId = await getGroupAlias(rawGroupId);
+// Inicia uma partida de Wordle
+export async function handleStart({ sock, message, chatId, senderId }) {
+  const groupId = await getGroupAlias(chatId);
   const session = getWordleSession(groupId);
   const today = getTodayDate();
 
   if (session.started) {
-    return await message.reply("⚠️ Já existe um Wordle ativo neste grupo!");
+    return sock.sendMessage(
+      chatId,
+      { text: "⚠️ Já existe um Wordle ativo neste grupo!" },
+      { quoted: message }
+    );
   }
 
   const data = await loadGameData();
   if (data[groupId]?.[today]) {
-    return await message.reply("🛑 O Wordle de hoje já foi iniciado neste grupo.");
-  }
-
-  const mentioned = extractMentionedIds(message);
-  if (!mentioned.length || mentioned.length > 3) {
-    return await message.reply(
-      "❗ Use: *!wordle start @j1 @j2 ...* (máx. 3 jogadores)"
+    return sock.sendMessage(
+      chatId,
+      { text: "🛑 O Wordle de hoje já foi iniciado neste grupo." },
+      { quoted: message }
     );
   }
 
-  const allPlayers = [playerId, ...mentioned];
+  const mentioned =
+    message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+  if (mentioned.length === 0 || mentioned.length > 3) {
+    return sock.sendMessage(
+      chatId,
+      { text: "❗ Uso: *!wordle start @j1 @j2 ...* (máx. 3 jogadores)" },
+      { quoted: message }
+    );
+  }
+
+  const allPlayers = [senderId, ...mentioned].map((id) => normalizeUserId(id));
   const words = await getValidWords();
   const secretWord = words[Math.floor(Math.random() * words.length)];
 
   if (!data[groupId]) data[groupId] = {};
-
   data[groupId][today] = {
     word: secretWord,
     guesses: [],
@@ -56,58 +67,74 @@ export async function handleStart(message, playerId) {
   session.participants = allPlayers;
 
   await saveGameData(data);
-
-  await registerGroup(groupId, chat.name);
-
-  const mentions = await message.getMentions();
-  const author = await message.getContact();
+  const groupName =
+    (await sock.groupMetadata(chatId))?.subject || "Grupo Desconhecido";
+  await registerGroup(groupId, groupName);
 
   for (const id of allPlayers) {
-    const contact = id === playerId ? author : mentions.find((c) => c.id._serialized === id);
-    const nickname = contact?.pushname || contact?.name || id;
+    const nickname = await getUserName(id);
     await registerUser(id, nickname);
   }
 
-  await message.reply(
-    `🧠 *Wordle iniciado!*\nJogadores: ${allPlayers.length} participantes.\n6 tentativas. Boa sorte!`
+  await sock.sendMessage(
+    chatId,
+    {
+      text: `🧠 *Wordle iniciado!*\nJogadores: ${allPlayers.length} participantes.\n6 tentativas. Boa sorte!`,
+    },
+    { quoted: message }
   );
 }
 
-export async function handleGuess(message, playerId) {
-  const chat = await message.getChat();
-  const rawGroupId = chat.id._serialized;
-  const groupId = await getGroupAlias(rawGroupId);
-
+// Lida com um palpite do usuário
+export async function handleGuess({ sock, message, args, chatId, senderId }) {
+  const groupId = await getGroupAlias(chatId);
   const session = getWordleSession(groupId);
   const data = await loadGameData();
   const game = data[groupId]?.[session.date];
 
   if (!game || game.finished) {
-    return await message.reply("❌ Nenhum jogo ativo ou já finalizado.");
+    return sock.sendMessage(
+      chatId,
+      { text: "❌ Nenhum jogo ativo ou já finalizado." },
+      { quoted: message }
+    );
   }
-
-  if (!game.participants.includes(playerId)) {
-    return await message.reply("❌ Você não está participando hoje.");
+  if (!game.participants.includes(senderId)) {
+    return sock.sendMessage(
+      chatId,
+      { text: "❌ Você não está participando hoje." },
+      { quoted: message }
+    );
   }
-
   if (game.guesses.length >= 6) {
-    return await message.reply("🚫 Já foram feitas as 6 tentativas.");
+    return sock.sendMessage(
+      chatId,
+      { text: "🚫 Já foram feitas as 6 tentativas." },
+      { quoted: message }
+    );
   }
 
-  const guess = message.body.slice(8).trim().toLowerCase();
-  if (guess.length !== 5) {
-    return await message.reply("❗ Palavras precisam ter 5 letras.");
+  const guess = args[0]?.toLowerCase();
+  if (!guess || guess.length !== 5) {
+    return sock.sendMessage(
+      chatId,
+      { text: "❗ Palavras precisam ter 5 letras." },
+      { quoted: message }
+    );
   }
 
   const validWords = await getValidWords();
   if (!validWords.includes(guess)) {
-    return await message.reply("❌ Palavra inválida.");
+    return sock.sendMessage(
+      chatId,
+      { text: "❌ Palavra inválida." },
+      { quoted: message }
+    );
   }
 
   game.guesses.push(guess);
 
   const normalizedSecretWord = normalize(game.word);
-
   for (const letter of guess) {
     const normalizedLetter = normalize(letter);
     if (!normalizedSecretWord.includes(normalizedLetter)) {
@@ -127,20 +154,17 @@ export async function handleGuess(message, playerId) {
     const points = [0, 150, 120, 100, 80, 60, 40][game.guesses.length] || 40;
     for (const id of game.participants) {
       await addPoints(groupId, id, "wordle", points, "win");
-      game.scores[id] = points;
     }
-
     msg += `\n✅ Palavra correta: *${game.word}*\nTodos ganharam ${points} pontos!`;
     game.finished = true;
-    session.started = false;
+    resetWordleSession(groupId);
   } else if (game.guesses.length === 6) {
     for (const id of game.participants) {
       await addPoints(groupId, id, "wordle", 0, "loss");
     }
-
     msg += `\n❌ Fim do jogo. A palavra era: *${game.word}*`;
     game.finished = true;
-    session.started = false;
+    resetWordleSession(groupId);
   }
 
   if (game.invalidLetters.length) {
@@ -152,18 +176,23 @@ export async function handleGuess(message, playerId) {
   }
 
   await saveGameData(data);
-  return await message.reply(msg);
+  return sock.sendMessage(chatId, { text: msg }, { quoted: message });
 }
 
-export async function handleStatus(message) {
-  const chat = await message.getChat();
-  const rawGroupId = chat.id._serialized;
-  const groupId = await getGroupAlias(rawGroupId);
+// Funções de status, reset e ajuda adaptadas
+export async function handleStatus({ sock, message, chatId }) {
+  const groupId = await getGroupAlias(chatId);
   const session = getWordleSession(groupId);
   const data = await loadGameData();
   const game = data[groupId]?.[session.date];
 
-  if (!game) return await message.reply("❌ Nenhum jogo ativo.");
+  if (!game) {
+    return sock.sendMessage(
+      chatId,
+      { text: "❌ Nenhum jogo ativo." },
+      { quoted: message }
+    );
+  }
 
   let status = `📊 *Status (${game.guesses.length}/6):*\n`;
   for (const g of game.guesses) {
@@ -177,33 +206,28 @@ export async function handleStatus(message) {
       .join(", ");
     status += `\n❌ Letras ausentes: ${letras}`;
   }
-
-  return await message.reply(status);
+  return sock.sendMessage(chatId, { text: status }, { quoted: message });
 }
 
-export async function handleReset(message) {
-  const chat = await message.getChat();
-  const rawGroupId = chat.id._serialized;
-  const groupId = await getGroupAlias(rawGroupId);
+export async function handleReset({ sock, message, chatId }) {
+  const groupId = await getGroupAlias(chatId);
   const session = getWordleSession(groupId);
   const data = await loadGameData();
 
-  if (data[groupId]) {
+  if (data[groupId]?.[session.date]) {
     delete data[groupId][session.date];
     await saveGameData(data);
   }
 
   resetWordleSession(groupId);
-  return await message.reply("♻️ Wordle resetado.");
+  return sock.sendMessage(
+    chatId,
+    { text: "♻️ Wordle resetado." },
+    { quoted: message }
+  );
 }
 
-export async function sendHelp(message) {
-  const help = `
-📝 *Comandos do Wordle:*
-• \`!wordle start @j1 @j2 ...\`
-• \`!wordle <palpite>\`
-• \`!wordle status\`
-• \`!wordle reset\`
-`;
-  await message.reply(help.trim());
+export async function sendHelp({ sock, message, chatId }) {
+  const help = `📝 *Comandos do Wordle:*\n• \`!wordle start @j1 @j2 ...\`\n• \`!wordle <palpite>\`\n• \`!wordle status\`\n• \`!wordle reset\``;
+  await sock.sendMessage(chatId, { text: help.trim() }, { quoted: message });
 }

@@ -47,14 +47,3 @@ export function calculateTotal(hand) {
 
   return total;
 }
-
-export function extractMentionedIds(message) {
-  let mentioned = message.mentionedIds || [];
-  if (!mentioned.length) {
-    const matches = message.body.match(/@(\d{5,})/g);
-    if (matches) {
-      mentioned = matches.map((m) => m.replace("@", "") + "@c.us");
-    }
-  }
-  return mentioned;
-}

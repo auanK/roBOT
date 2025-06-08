@@ -9,34 +9,51 @@ export async function loadUsers() {
   try {
     const data = await readFile(usersPath, "utf8");
     return JSON.parse(data);
-  } catch {
+  } catch (error) {
+    if (error.code === "ENOENT") return {};
     return {};
   }
 }
 
 export async function saveUsers(data) {
-  await writeFile(usersPath, JSON.stringify(data, null, 2));
+  try {
+    await writeFile(usersPath, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error("Erro ao salvar users.meta.json:", error);
+  }
 }
 
 export async function registerUser(userId, pushname) {
-  const users = await loadUsers();
+  if (!pushname || !userId) return;
 
-  if (!users[userId]) {
-    users[userId] = {
+  const users = await loadUsers();
+  const normalizedId = userId.replace("@s.whatsapp.net", "@c.us");
+  const currentUser = users[normalizedId];
+
+  if (!currentUser || currentUser.pushname !== pushname) {
+    users[normalizedId] = {
       pushname,
-      createdAt: new Date().toISOString(),
+      createdAt: currentUser?.createdAt || new Date().toISOString(),
     };
     await saveUsers(users);
+    console.log(
+      `[Usuário Salvo/Atualizado] Nome: ${pushname}, ID: ${normalizedId}`
+    );
   }
 }
 
-export async function getUserDisplayName(userId, groupId, allUsers = null) {
-  const users = allUsers || (await loadUsers());
+export function normalizeUserId(id) {
+  if (!id) return null;
+  return id.replace("@s.whatsapp.net", "@c.us");
+}
 
-  const globalUser = users[userId];
-  if (globalUser?.pushname) {
-    return globalUser.pushname;
+export async function getUserName(userId) {
+  const users = await loadUsers();
+  const normalizedId = normalizeUserId(userId);
+  const userData = users[normalizedId];
+
+  if (userData?.pushname) {
+    return userData.pushname;
   }
-
   return `Usuário (${userId.slice(0, 4)})`;
 }

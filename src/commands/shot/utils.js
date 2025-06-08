@@ -45,18 +45,6 @@ export function getSenderId(message) {
   return message.author || message.from;
 }
 
-// Pega o ID dos jogadores que estão sendo mencionados na mensagem
-export function extractMentionedIds(message) {
-  let mentioned = message.mentionedIds || [];
-  if (!mentioned.length) {
-    const matches = message.body.match(/@(\d{5,})/g);
-    if (matches) {
-      mentioned = matches.map((m) => m.replace("@", "") + "@c.us");
-    }
-  }
-  return mentioned;
-}
-
 // Forma a mensagem de status de vidas dos jogadores e os itens.
 export function formatLivesStatus(playersMap, totalLives) {
   return Array.from(playersMap.entries()).map(([_, player]) => {

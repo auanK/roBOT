@@ -1,50 +1,61 @@
 import { getBlackjackSession, resetBlackjackSession } from "./session.js";
-import { createDeck, calculateTotal, extractMentionedIds } from "./utils.js";
+import { createDeck, calculateTotal } from "./utils.js";
 import { dealerPlay, getWinners, isGameOver } from "./engine.js";
 import { addPoints } from "../../utils/statsService.js";
-import { registerUser } from "../../utils/userService.js";
-import { registerGroup, getGroupAlias } from "../../utils/groupService.js";
+import {
+  registerUser,
+  getUserName,
+  normalizeUserId,
+} from "../../utils/userService.js";
+import { getGroupAlias, registerGroup } from "../../utils/groupService.js";
 
-export async function handleStart(message, playerId) {
-  const chat = await message.getChat();
-  const rawGroupId = chat.id._serialized;
-  const groupId = await getGroupAlias(rawGroupId);
+export async function handleStart({ sock, message, chatId, senderId }) {
+  const groupId = await getGroupAlias(chatId);
   const session = getBlackjackSession(groupId);
 
   if (session.started) {
-    return await message.reply("⚠️ Já existe uma partida de Blackjack em andamento!");
+    return sock.sendMessage(
+      chatId,
+      { text: "⚠️ Já existe uma partida de Blackjack em andamento!" },
+      { quoted: message }
+    );
   }
 
-  const mentioned = extractMentionedIds(message);
+  const mentioned =
+    message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+
   if (mentioned.length > 3) {
-    return await message.reply("❗ Máximo de 4 jogadores por rodada.");
+    return sock.sendMessage(
+      chatId,
+      { text: "❗ Máximo de 4 jogadores por rodada." },
+      { quoted: message }
+    );
   }
 
   const newSession = resetBlackjackSession(groupId);
   newSession.started = true;
   newSession.deck = createDeck();
 
-  const allPlayers = [playerId, ...mentioned];
-  const mentions = await message.getMentions();
-  const author = await message.getContact();
+  const allPlayerIds = [senderId, ...mentioned].map((id) =>
+    normalizeUserId(id)
+  );
 
-  await registerGroup(groupId, chat.name);
+  const groupName =
+    (await sock.groupMetadata(chatId))?.subject || "Grupo Desconhecido";
+  await registerGroup(groupId, groupName);
 
-  for (const id of allPlayers) {
-    const contact =
-      id === playerId ? author : mentions.find((c) => c.id._serialized === id);
-    const nickname = contact?.pushname || contact?.name || id;
+  for (const id of allPlayerIds) {
+    const nickname = await getUserName(id, sock); // Usa a nova função para todos
+    await registerUser(id, nickname);
 
     const hand = [newSession.deck.shift(), newSession.deck.shift()];
     const total = calculateTotal(hand);
 
     newSession.players.set(id, { nickname, total, status: "playing", hand });
-
     const handText = hand.map((c) => c.name).join(", ");
-    await message.client.sendMessage(id, `🃏 Suas cartas: ${handText}\nTotal: ${total}`);
-
-
-    await registerUser(id, nickname);
+    await sock.sendMessage(id, {
+      text: `🃏 Suas cartas no Blackjack: ${handText}\nTotal: ${total}`,
+    });
   }
 
   const dealerHand = [newSession.deck.shift(), newSession.deck.shift()];
@@ -55,93 +66,85 @@ export async function handleStart(message, playerId) {
   };
 
   const visibleCard = dealerHand[0].name;
-  await message.reply(
-    `🧑‍⚖️ Dealer está na mesa.\n• Carta visível: ${visibleCard}\n• Outra carta está virada.`
-  );
+  await sock.sendMessage(chatId, {
+    text: `🧑‍⚖️ Dealer está na mesa.\n• Carta visível: ${visibleCard}\n• Outra carta está virada.`,
+  });
 
   const playerList = [...newSession.players.values()]
     .map((p) => p.nickname)
     .join(", ");
-  return await chat.sendMessage(`🃏 Jogo iniciado!\nJogadores: ${playerList}`);
+  return sock.sendMessage(chatId, {
+    text: `🃏 Jogo iniciado!\nJogadores: ${playerList}`,
+  });
 }
 
-export async function handleDraw(message, playerId) {
-  const chat = await message.getChat();
-  const rawGroupId = chat.id._serialized;
-  const groupId = await getGroupAlias(rawGroupId);
+export async function handleDraw({ sock, message, chatId, senderId }) {
+  const groupId = await getGroupAlias(chatId);
   const session = getBlackjackSession(groupId);
 
-  if (!session.started) return await message.reply("⛔ Jogo não iniciado.");
-  if (!session.players.has(playerId))
-    return await message.reply("❌ Você não está no jogo.");
+  if (!session.started)
+    return sock.sendMessage(
+      chatId,
+      { text: "⛔ Jogo não iniciado." },
+      { quoted: message }
+    );
+  if (!session.players.has(senderId))
+    return sock.sendMessage(
+      chatId,
+      { text: "❌ Você não está no jogo." },
+      { quoted: message }
+    );
 
-  const player = session.players.get(playerId);
+  const player = session.players.get(senderId);
   if (player.status !== "playing")
-    return await message.reply("⚠️ Você já parou ou estourou.");
+    return sock.sendMessage(
+      chatId,
+      { text: "⚠️ Você já parou ou estourou." },
+      { quoted: message }
+    );
 
   const card = session.deck.shift();
   player.hand.push(card);
   player.total = calculateTotal(player.hand);
 
-  let msg = `🃏 Você puxou: ${card.name}\nTotal: ${player.total}`;
+  let privateMsg = `🃏 Você puxou: ${card.name}\nTotal: ${player.total}`;
   if (player.total > 21) {
     player.status = "busted";
-    msg += `\n💥 Você estourou!`;
-    await message.reply(
-      `💥 ${player.nickname} estourou com ${player.total} pontos.`
+    privateMsg += `\n💥 Você estourou!`;
+    await sock.sendMessage(chatId, {
+      text: `💥 ${player.nickname} estourou com ${player.total} pontos.`,
+    });
+  }
+  await sock.sendMessage(senderId, { text: privateMsg });
+
+  if (isGameOver(session)) await sendResults({ sock, chatId, session });
+}
+
+export async function handleStand({ sock, message, chatId, senderId }) {
+  const groupId = await getGroupAlias(chatId);
+  const session = getBlackjackSession(groupId);
+  const player = session.players.get(senderId);
+
+  if (!player || player.status !== "playing") {
+    return sock.sendMessage(
+      chatId,
+      { text: "⚠️ Você já parou ou não está jogando." },
+      { quoted: message }
     );
   }
 
-  await message.client.sendMessage(playerId, msg);
-  if (isGameOver(session)) await sendResults(message, session);
-}
-
-export async function handleStand(message, playerId) {
-  const chat = await message.getChat();
-  const rawGroupId = chat.id._serialized;
-  const groupId = await getGroupAlias(rawGroupId);
-  const session = getBlackjackSession(groupId);
-
-  const player = session.players.get(playerId);
-  if (!player || player.status !== "playing")
-    return await message.reply("⚠️ Você já parou ou não está jogando.");
-
   player.status = "stood";
-  await message.reply(`✋ ${player.nickname} parou.`);
+  await sock.sendMessage(
+    chatId,
+    { text: `✋ ${player.nickname} parou.` },
+    { quoted: message }
+  );
 
-  if (isGameOver(session)) await sendResults(message, session);
+  if (isGameOver(session)) await sendResults({ sock, chatId, session });
 }
 
-export async function handleStatus(message) {
-  const chat = await message.getChat();
-  const rawGroupId = chat.id._serialized;
-  const groupId = await getGroupAlias(rawGroupId);
-  const session = getBlackjackSession(groupId);
-
-  if (!session.started)
-    return await message.reply("📴 Nenhum jogo em andamento.");
-
-  let status = "📋 *Status do jogo:*\n";
-  for (const [, player] of session.players.entries()) {
-    status += `- ${player.nickname} (${player.status})\n`;
-  }
-
-  status += `\n🧑‍⚖️ Dealer mostrou: ${session.dealer.hand[0].name}`;
-  await message.reply(status);
-}
-
-export async function handleReset(message) {
-  const chat = await message.getChat();
-  const rawGroupId = chat.id._serialized;
-  const groupId = await getGroupAlias(rawGroupId);
-  resetBlackjackSession(groupId);
-  return await message.reply("♻️ Blackjack reiniciado.");
-}
-
-export async function sendResults(message, session) {
-  const chat = await message.getChat();
-  const rawGroupId = chat.id._serialized;
-  const groupId = await getGroupAlias(rawGroupId);
+async function sendResults({ sock, chatId, session }) {
+  const groupId = await getGroupAlias(chatId);
 
   dealerPlay(session);
   const winners = getWinners(session);
@@ -149,8 +152,8 @@ export async function sendResults(message, session) {
 
   let result = `🎲 *Resultado da Rodada*\n\n`;
   result += `🧑‍⚖️ *Dealer* — ${session.dealer.total} (${session.dealer.status})\n${dealerText}\n\n`;
-
   result += `👥 *Jogadores*\n`;
+
   for (const [id, player] of session.players.entries()) {
     const handText = player.hand.map((c) => c.name).join(", ");
     result += `• ${player.nickname} — ${player.total} (${player.status})\n${handText}\n`;
@@ -162,28 +165,53 @@ export async function sendResults(message, session) {
       await addPoints(groupId, id, "blackjack", 50, "win");
       result += `• ${player.nickname} (${player.total})\n`;
     }
-    result = result.trim();
   } else {
     result += `\n😬 Ninguém venceu o dealer.`;
   }
 
-  for (const [id, p] of session.players.entries()) {
-    if (!winners.find(([wid]) => wid === id)) {
+  for (const [id] of session.players.entries()) {
+    if (!winners.some(([wid]) => wid === id)) {
       await addPoints(groupId, id, "blackjack", 0, "loss");
     }
   }
 
-  session.started = false;
-
-  chat.sendMessage(result);
+  resetBlackjackSession(groupId);
+  sock.sendMessage(chatId, { text: result.trim() });
 }
 
-export async function sendHelp(message) {
-  return await message.reply(`📝 *Comandos do Blackjack:*
-• \`!blackjack start @j1 @j2 @j3\`
-• \`!blackjack draw\`
-• \`!blackjack stand\`
-• \`!blackjack status\`
-• \`!blackjack reset\`
-`);
+export async function handleStatus({ sock, message, chatId }) {
+  const groupId = await getGroupAlias(chatId);
+  const session = getBlackjackSession(groupId);
+  if (!session.started)
+    return sock.sendMessage(
+      chatId,
+      { text: "📴 Nenhum jogo em andamento." },
+      { quoted: message }
+    );
+
+  let status = "📋 *Status do jogo:*\n";
+  for (const [, player] of session.players.entries()) {
+    status += `- ${player.nickname} (${player.status})\n`;
+  }
+  status += `\n🧑‍⚖️ Dealer mostrou: ${session.dealer.hand[0].name}`;
+  await sock.sendMessage(chatId, { text: status }, { quoted: message });
+}
+
+export async function handleReset({ sock, message, chatId }) {
+  const groupId = await getGroupAlias(chatId);
+  resetBlackjackSession(groupId);
+  return sock.sendMessage(
+    chatId,
+    { text: "♻️ Blackjack reiniciado." },
+    { quoted: message }
+  );
+}
+
+export async function sendHelp({ sock, message, chatId }) {
+  const helpText = `📝 *Comandos do Blackjack:*\n• \`!blackjack start @j1 @j2 @j3\`\n• \`!blackjack draw\`\n• \`!blackjack stand\`\n• \`!blackjack status\`\n• \`!blackjack reset\``;
+  return sock.sendMessage(
+    chatId,
+    { text: helpText.trim() },
+    { quoted: message }
+  );
 }
