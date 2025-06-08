@@ -1,29 +1,31 @@
-import makeWASocket, {
-  useMultiFileAuthState,
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-} from "@whiskeysockets/baileys";
+import makeWASocket from "@whiskeysockets/baileys";
 import qrcode from "qrcode-terminal";
 import pino from "pino";
+import handleMessage from "../handlers/messageHandler.js";
+import onReady from "../handlers/readyHandler.js";
 
-export async function connectToWhatsApp() {
+const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } =
+  makeWASocket;
+const makeWASocket_ = makeWASocket.default;
+
+async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState("auth_info_baileys");
-
   const { version, isLatest } = await fetchLatestBaileysVersion();
-  console.log(`Usando a versão do Baileys: ${version}, É a mais recente? ${isLatest}`);
+  console.log(
+    `Usando a versão do Baileys: ${version}. Mais recente? ${isLatest}`
+  );
 
-  const sock = makeWASocket({
+  const sock = makeWASocket_({
     version,
     auth: state,
     logger: pino({ level: "silent" }),
-    printQRInTerminal: true,
   });
 
   sock.ev.on("connection.update", (update) => {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      console.log("⚠️ Escaneie o QR Code abaixo:");
+      console.log("⚠️ Escaneie o QR Code:");
       qrcode.generate(qr, { small: true });
     }
 
@@ -31,20 +33,29 @@ export async function connectToWhatsApp() {
       const shouldReconnect =
         lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
       console.log(
-        "❌ Conexão fechada. Motivo:",
-        lastDisconnect.error,
-        ". Reconectando:",
-        shouldReconnect
+        `❌ Conexão fechada. Motivo: ${lastDisconnect.error?.message}. Reconectando: ${shouldReconnect}`
       );
       if (shouldReconnect) {
         connectToWhatsApp();
       }
     } else if (connection === "open") {
       console.log("✅ Conexão aberta, bot está online!");
+      onReady(sock);
     }
   });
 
   sock.ev.on("creds.update", saveCreds);
 
-  return sock; o
+  sock.ev.on("messages.upsert", async (m) => {
+    const message = m.messages[0];
+    if (message.key.remoteJid === "status@broadcast" || !message.message) {
+      return;
+    }
+    
+    await handleMessage(sock, m);
+  });
+
+  return sock;
 }
+
+export { connectToWhatsApp };

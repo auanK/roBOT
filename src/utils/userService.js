@@ -29,3 +29,14 @@ export async function registerUser(userId, pushname) {
     await saveUsers(users);
   }
 }
+
+export async function getUserDisplayName(userId, groupId, allUsers = null) {
+  const users = allUsers || (await loadUsers());
+
+  const globalUser = users[userId];
+  if (globalUser?.pushname) {
+    return globalUser.pushname;
+  }
+
+  return `Usuário (${userId.slice(0, 4)})`;
+}

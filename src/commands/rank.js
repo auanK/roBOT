@@ -1,52 +1,55 @@
 import { loadStats } from "../utils/statsService.js";
-import { loadUsers } from "../utils/userService.js";
-import { isGroupMessage, getGroupAlias } from "../utils/groupService.js";
-import { get } from "http";
+import { loadUsers, getUserDisplayName } from "../utils/userService.js";
+import { getGroupAlias } from "../utils/groupService.js";
 
 export default {
   name: "rank",
   description: "Mostra o ranking de pontos e vitórias no grupo.",
   usage: "!rank",
 
-  run: async ({message}) => {
-    if (!(await isGroupMessage(message))) {
-      return;
-    }
+  run: async ({ sock, message }) => {
+    const chatId = message.key.remoteJid;
+    if (!chatId.endsWith("@g.us")) return;
 
-    const chat = await message.getChat();
-    const rawGroupId = chat.id._serialized;
-    const groupId = await getGroupAlias(rawGroupId);
-
-    const stats = await loadStats();
+    const groupId = await getGroupAlias(chatId);
+    const gameStats = await loadStats();
     const users = await loadUsers();
-    const groupStats = stats[groupId];
+    const groupStats = gameStats[groupId];
 
     if (!groupStats || Object.keys(groupStats).length === 0) {
-      return await message.reply("📭 Nenhum jogador pontuou ainda neste grupo.");
+      return sock.sendMessage(
+        chatId,
+        {
+          text: "📭 Nenhum jogador pontuou ainda neste grupo.",
+        },
+        { quoted: message }
+      );
     }
 
-    const players = Object.entries(groupStats).map(([userId, games]) => {
-      let totalPoints = 0;
-      let totalWins = 0;
-      const gameWins = {};
+    const players = await Promise.all(
+      Object.entries(groupStats).map(async ([userId, games]) => {
+        let totalPoints = 0;
+        let totalWins = 0;
+        const gameWins = {};
 
-      for (const [game, data] of Object.entries(games)) {
-        totalPoints += data.points || 0;
-        totalWins += data.wins || 0;
-        gameWins[game] = data.wins || 0;
-      }
+        for (const [game, data] of Object.entries(games)) {
+          totalPoints += data.points || 0;
+          totalWins += data.wins || 0;
+          gameWins[game] = data.wins || 0;
+        }
 
-      const userData = users[userId] || {};
-      const name = userData.pushname || userData.name || userId;
+        const name = await getUserDisplayName(userId, groupId, users);
 
-      return {
-        id: userId,
-        name,
-        points: totalPoints,
-        wins: totalWins,
-        perGame: gameWins,
-      };
-    });
+        return {
+          id: userId,
+          name,
+          points: totalPoints,
+          wins: totalWins,
+          perGame: gameWins,
+        };
+      })
+    );
+    
 
     // Top 10 por pontos
     const topPoints = [...players]
@@ -73,6 +76,12 @@ export default {
       winRank += `${medal} ${p.name} – ${p.wins} (${perGameText})\n`;
     });
 
-    await message.reply(pointsRank + winRank);
+    await sock.sendMessage(
+      chatId,
+      { text: pointsRank + winRank },
+      {
+        quoted: message,
+      }
+    );
   },
 };

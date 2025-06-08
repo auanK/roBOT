@@ -30,12 +30,6 @@ export async function registerGroup(groupId, name = "Grupo sem nome") {
   }
 }
 
-// Verifica se a mensagem é de um grupo
-export async function isGroupMessage(message) {
-  const chat = await message.getChat();
-  return chat.isGroup;
-}
-
 // Variáveis de cache
 let authorizedCache = null;
 let aliasCache = null;

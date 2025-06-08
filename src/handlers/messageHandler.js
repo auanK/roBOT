@@ -1,23 +1,34 @@
 import commands from "../commands/index.js";
-import { client } from "../client/index.js";
 import { getGroupAlias, isGroupAuthorized } from "../utils/groupService.js";
 import { recordMessage } from "../utils/messageStatsService.js";
 
+// Extrai o body de uma mensagem
+function getMessageBody(message) {
+  return (
+    message.message?.conversation ||
+    message.message?.extendedTextMessage?.text ||
+    ""
+  );
+}
+
+// Normaliza o ID do usuário para o formato @c.us
+function normalizeUserId(id) {
+  if (!id) return null;
+  return id.replace("@s.whatsapp.net", "@c.us");
+}
+
 // Verifica se a mensagem vem de um grupo autorizado
-async function isAuthorized(message) {
-  const chat = await message.getChat();
+async function isAuthorized(chatId) {
+  const isGroup = chatId.endsWith("@g.us");
 
   // Se for conversa privada, autoriza por padrão
-  if (!chat.isGroup) return true;
+  if (!isGroup) return true;
 
-  const isAuthorized = await isGroupAuthorized(chat.id._serialized);
-  if (!isAuthorized) {
-    console.log(
-      `🚫 Grupo não autorizado: ${chat.name} (${chat.id._serialized})`
-    );
+  const authorized = await isGroupAuthorized(chatId);
+  if (!authorized) {
+    console.log(`🚫 Grupo não autorizado: ${chatId}`);
   }
-
-  return isAuthorized;
+  return authorized;
 }
 
 // Quando o comando é enviado, ele é separado em nome e argumentos
@@ -28,42 +39,56 @@ function parseCommand(body) {
 
 // Log de comandos recebidos
 async function logMessage(message) {
-  const chat = await message.getChat();
-  const isGroup = chat.isGroup;
+  const chatId = message.key.remoteJid;
+  const isGroup = chatId.endsWith("@g.us");
 
-  const senderId = isGroup ? message.author : message.from;
-  const senderContact = await client.getContactById(senderId);
+  const senderId = normalizeUserId(
+    message.key.participant || message.key.remoteJid
+  );
 
-  const senderName = senderContact?.pushname || senderContact?.name || senderId;
-
-  const phoneNumber = senderId;
+  const senderName = message.pushName || senderId;
 
   const context = isGroup
-    ? `${chat.name} (${chat.id._serialized})`
-    : `Privado (${phoneNumber})`;
+    ? `Grupo: ${await getGroupAlias(chatId)} (${chatId})`
+    : `Privado: ${senderId}`;
 
   console.log(
-    `📩 [${new Date().toISOString()}] ${senderName} (${phoneNumber}) em ${context} :: ${
-      message.body
-    }`
+    `📩 [${new Date().toISOString()}] ${senderName} em ${context} :: ${getMessageBody(
+      message
+    )}`
   );
 }
 
-// Função principal que lida com mensagens
-export default async function handleMessage(message) {
-  const { body } = message;
+export default async function handleMessage(sock, m) {
+  const message = m.messages[0];
 
-  // Ignora mensagens enviadas pelo próprio bot e de grupos não autorizados
-  if (message.fromMe || !(await isAuthorized(message))) return;
+  // Ignora mensagens enviadas pelo próprio bot, de status ou sem conteúdo
+  if (
+    message.key.fromMe ||
+    message.key.remoteJid === "status@broadcast" ||
+    !message.message
+  ) {
+    return;
+  }
+
+  const chatId = message.key.remoteJid;
+
+  // Ignora mensagens de grupos não autorizados
+  if (!(await isAuthorized(chatId))) return;
+
+  const isGroup = chatId.endsWith("@g.us");
+  const rawSenderId = isGroup ? message.key.participant : message.key.remoteJid;
+  const senderId = normalizeUserId(rawSenderId);
 
   // Registra a mensagem para estatísticas de grupo
-  const chat = await message.getChat();
-  if (chat.isGroup) {
-    const groupId = await getGroupAlias(chat.id._serialized);
-    const userId = message.author || message.from;
 
-    await recordMessage(groupId, userId);
+  if (isGroup && senderId) {
+    const groupId = await getGroupAlias(chatId);
+    await recordMessage(groupId, senderId);
   }
+
+  // Extrai o corpo da mensagem
+  const body = getMessageBody(message);
 
   // Se não for um comando, ignora
   if (!body.startsWith("!")) return;
@@ -78,9 +103,9 @@ export default async function handleMessage(message) {
 
   // Executa o comando
   try {
-    await command.run({ client, message, args });
+    await command.run({ sock, message, args, chatId, senderId });
   } catch (err) {
     console.error(`❌ Erro no comando "!${name}":`, err);
-    await client.sendMessage(message.from, `❌ Erro ao executar: !${name}`);
+    await sock.sendMessage(chatId, { text: `❌ Erro ao executar: !${name}` });
   }
 }

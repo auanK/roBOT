@@ -52,9 +52,10 @@ export function handleStatsRequest(args, groupStats, users) {
   }
 
   if (!isNaN(arg1) && arg1 >= 0 && arg1 < 24) {
-    const title = `⏳ Ranking das ${arg1}h (Geral)`;
-    return formatRankingReply(title, groupStats, users, null, arg1);
-  }
+    const hourKey = parseInt(arg1, 10).toString(); 
+    const title = `⏳ Ranking das ${hourKey}h (Geral)`;
+    return formatRankingReply(title, groupStats, users, null, hourKey);
+}
 
   return "❌ Filtro inválido. Use !help para ver os formatos.";
 }

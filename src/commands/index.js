@@ -4,9 +4,9 @@ import roll from "./roll.js";
 import teams from "./teams.js";
 import timer from "./timer.js";
 import rian from "./rian.js";
-import shot from "./shot/shot.js";
-import blackjack from "./blackjack/blackjack.js";
-import wordle from "./wordle/wordle.js";
+//import shot from "./shot/shot.js";
+//import blackjack from "./blackjack/blackjack.js";
+//import wordle from "./wordle/wordle.js";
 import rank from "./rank.js";
 import weather from "./weather.js";
 import nasa from "./nasa.js";
@@ -20,9 +20,9 @@ const commands = {
   teams,
   timer,
   rian,
-  shot,
-  blackjack,
-  wordle,
+  // shot,
+  //blackjack,
+  //wordle,
   rank,
   weather,
   nasa,

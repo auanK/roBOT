@@ -3,15 +3,20 @@ export default {
   description: "Cria grupos aleatórios com os nomes fornecidos.",
   usage: "!teams <pessoas por grupo> <nomes separados por vírgula>",
 
-  run: async ({message, args}) => {
+  run: async ({ sock, message, args }) => {
+    const chatId = message.key.remoteJid;
     const groupSize = parseInt(args[0], 10);
     const MIN_NAMES = 2;
     const MAX_PER_GROUP = 10;
 
     // Valida o tamanho do grupo
     if (isNaN(groupSize) || groupSize < 1 || groupSize > MAX_PER_GROUP) {
-      return message.reply(
-        `❌ Formato inválido. Use: !teams <1-${MAX_PER_GROUP}> <nomes>`
+      return sock.sendMessage(
+        chatId,
+        {
+          text: `❌ Formato inválido. Use: !teams <1-${MAX_PER_GROUP}> <nomes>`,
+        },
+        { quoted: message }
       );
     }
 
@@ -24,7 +29,13 @@ export default {
 
     // Verifica se tem nomes suficientes
     if (names.length < MIN_NAMES) {
-      return message.reply("❌ Você precisa fornecer pelo menos 2 nomes.");
+      return sock.sendMessage(
+        chatId,
+        {
+          text: "❌ Você precisa fornecer pelo menos " + MIN_NAMES + " nomes.",
+        },
+        { quoted: message }
+      );
     }
 
     // Embaralha a lista de nomes usando Fisher-Yates
@@ -45,6 +56,6 @@ export default {
       reply += `Time ${index + 1}: ${group.join(", ")}\n`;
     });
 
-    await message.reply(reply);
+    await sock.sendMessage(chatId, { text: reply }, { quoted: message });
   },
 };

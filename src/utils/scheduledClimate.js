@@ -1,7 +1,6 @@
 import cron from "node-cron";
 import fs from "fs";
 import path from "path";
-import { client } from "../client/index.js";
 import { formatWeather } from "./weatherUtils.js";
 
 const CLIMATE_PATH = path.resolve("src/data/schedules.climate.json");
@@ -16,9 +15,8 @@ function loadSchedules() {
     return [];
   }
 }
-
 // Agenda o envio de mensagens de clima
-function scheduleClimate({ times, cities, to }) {
+function scheduleClimate(sock, { times, cities, to }) {
   times.forEach((cronTime) => {
     if (!cron.validate(cronTime)) return;
 
@@ -37,7 +35,7 @@ function scheduleClimate({ times, cities, to }) {
           "Atualizado via OpenWeather",
         ].join("\n");
 
-        await client.sendMessage(to, message);
+        await sock.sendMessage(to, { text: message });
         console.log(`✅ [Clima] Enviado para ${to}`);
       } catch (err) {
         console.error(`❌ Erro no envio de clima:`, err.message);
@@ -47,9 +45,8 @@ function scheduleClimate({ times, cities, to }) {
     console.log(`✅ Agendado [Clima] para ${to} → ${cronTime}`);
   });
 }
-
 // Inicia o agendador de clima
-export default function startClimateScheduler() {
+export default function startClimateScheduler(sock) {
   const schedules = loadSchedules();
-  schedules.forEach(scheduleClimate);
+  schedules.forEach((schedule) => scheduleClimate(sock, schedule));
 }

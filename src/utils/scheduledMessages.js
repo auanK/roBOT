@@ -1,7 +1,6 @@
 import cron from "node-cron";
 import fs from "fs";
 import path from "path";
-import { client } from "../client/index.js";
 
 const MESSAGES_PATH = path.resolve("src/data/schedules.messages.json");
 const activeJobs = new Map();
@@ -42,7 +41,7 @@ function isExpired(cronExpr) {
 }
 
 // Agenda o envio de uma mensagem
-function scheduleMessage({ id, cron: cronExpr, messages, to, once }) {
+function scheduleMessage(sock, { id, cron: cronExpr, messages, to, once }) {
   if (!cron.validate(cronExpr) || activeJobs.has(id)) return;
   if (once && isExpired(cronExpr)) {
     console.log(`⏩ Ignorando vencido: ${id}`);
@@ -57,7 +56,7 @@ function scheduleMessage({ id, cron: cronExpr, messages, to, once }) {
     const message = getRandom(messages);
 
     try {
-      await client.sendMessage(to, message);
+      await sock.sendMessage(to, { text: message });
       console.log(`✅ [Mensagem] ${id} enviada para ${to}`);
     } catch (err) {
       console.error(`❌ Erro no envio (${id}):`, err.message);
@@ -69,7 +68,7 @@ function scheduleMessage({ id, cron: cronExpr, messages, to, once }) {
 }
 
 // Inicia o agendador de mensagens
-export default function startMessageScheduler() {
+export default function startMessageScheduler(sock) {
   const schedules = loadSchedules();
-  schedules.forEach(scheduleMessage);
+  schedules.forEach((schedule) => scheduleMessage(sock, schedule));
 }

@@ -2,7 +2,8 @@ export default {
   name: "help",
   description: "Mostra a lista de comandos disponíveis",
   usage: "!help",
-  run: async ({ message }) => {
+  run: async ({ sock, message }) => {
+  const chatId = message.key.remoteJid;
     const helpText = `
   📖 *Comandos disponíveis:*
   
@@ -17,6 +18,8 @@ export default {
   🎰 *!rank* – Mostra o ranking de pontos e vitórias no grupo.
   🌦️ *!weather <cidade>,[país]* – Consulta o clima de uma cidade.
       `;
-    await message.reply(helpText);
-  },
+    await sock.sendMessage(chatId, {
+      text: helpText,
+    }, { quoted: message });  
+  }
 };

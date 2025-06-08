@@ -3,7 +3,8 @@ export default {
   description: "Rola um ou mais dados. Ex: !roll d6, !roll 2d20",
   usage: "!roll <quantidade>d<lados>",
 
-  run: async ({ message, args }) => {
+  run: async ({ sock, message, args }) => {
+    const chatId = message.key.remoteJid;
     const input = args[0]?.toLowerCase();
 
     // Expressão regular para capturar o formato correto (ex: d6, 2d10)
@@ -15,14 +16,16 @@ export default {
 
     // Se não estiver no formato esperado, retorna erro
     if (!match) {
-      return message.reply("❌ Formato inválido. Use: !roll <n>d<lados> (ex: 2d6, d20)");
+      return sock.sendMessage(chatId, {
+        text: "❌ Formato inválido. Use: !roll <n>d<lados> (ex: 2d6, d20)",
+      }, { quoted: message });
     }
 
     // Extrai a quantidade de rolagens e lados
     const rolls = parseInt(match[1] || "1", 10);
     const sides = parseInt(match[2], 10);
 
-    // Valida os limites das rolagens e dos dados
+    // Valida os limites das rolagens e dos lados
     if (
       isNaN(sides) ||
       isNaN(rolls) ||
@@ -31,7 +34,13 @@ export default {
       sides > MAX_SIDES ||
       rolls > MAX_ROLLS
     ) {
-      return message.reply(`❌ Limites: até ${MAX_ROLLS} rolagens e ${MAX_SIDES} lados.`);
+      return sock.sendMessage(
+        chatId,
+        {
+          text: `❌ Limites: até ${MAX_ROLLS} rolagens e ${MAX_SIDES} lados.`,
+        },
+        { quoted: message }
+      );
     }
 
     // Gera os resultados das rolagens
@@ -39,7 +48,11 @@ export default {
 
     // Caso só tenha uma rolagem, exibe direto
     if (rolls === 1) {
-      return message.reply(`🎲 Resultado: ${results[0]}`);
+      return sock.sendMessage(
+        chatId,
+        { text: `🎲 Resultado: ${results[0]}` },
+        { quoted: message }
+      );
     }
 
     // Para múltiplas rolagens, mostra a soma e os primeiros resultados
@@ -47,6 +60,10 @@ export default {
     const displayed = results.slice(0, MAX_DISPLAY).join(", ");
     const suffix = results.length > MAX_DISPLAY ? ", ..." : "";
 
-    return message.reply(`🎲 Soma: ${sum} = [${displayed}${suffix}]`);
+    return sock.sendMessage(
+      chatId,
+      { text: `🎲 Soma: ${sum} = [${displayed}${suffix}]` },
+      { quoted: message }
+    );
   },
 };

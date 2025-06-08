@@ -5,9 +5,17 @@ export default {
   description: "Consulta o clima de uma cidade",
   usage: "!weather <cidade> [país]",
 
-  run: async ({message, args}) => {
+  run: async ({ sock, message, args }) => {
+    const chatId = message.key.remoteJid;
+
     if (!args.length) {
-      return await message.reply("❗ Exemplo de uso: *!weather Quixadá BR*");
+      return await sock.sendMessage(
+        chatId,
+        {
+          text: "❗ Exemplo de uso: *!weather Quixadá BR*",
+        },
+        { quoted: message }
+      );
     }
 
     const city = args.join(" ");
@@ -21,6 +29,6 @@ export default {
       })}\n\n` +
       `${weatherLine}\n\nAtualizado via OpenWeather`;
 
-    await message.reply(response);
+    await sock.sendMessage(chatId, { text: response }, { quoted: message });
   },
 };
