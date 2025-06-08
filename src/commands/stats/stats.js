@@ -16,7 +16,6 @@ export default {
     const groupId = await getGroupAlias(chatId);
 
     const allStats = await loadMessageStats();
-    const users = await loadUsers();
     const groupStats = allStats[groupId];
 
     if (!groupStats) {
@@ -31,14 +30,8 @@ export default {
       );
     }
 
-    const replyMessage = handleStatsRequest(args, groupStats, users);
+    const replyMessage = await handleStatsRequest(args, groupStats, groupId);
 
-    await sock.sendMessage(
-      chatId,
-      { text: replyMessage.trim() },
-      {
-        quoted: message,
-      }
-    );
+    await sock.sendMessage(chatId, { text: replyMessage }, { quoted: message });
   },
 };

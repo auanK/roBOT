@@ -38,7 +38,7 @@ export default {
           gameWins[game] = data.wins || 0;
         }
 
-        const name = await getUserName(userId, sock);
+        const name = await getUserName(userId, groupId);
 
         return {
           id: userId,

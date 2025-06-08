@@ -11,6 +11,7 @@ import rank from "./rank.js";
 import weather from "./weather.js";
 import nasa from "./nasa.js";
 import stats from "./stats/stats.js";
+import profile from "./profile/profile.js";
 
 // Agrupa todos os comandos em um objeto e exporta
 const commands = {
@@ -27,6 +28,7 @@ const commands = {
   weather,
   nasa,
   stats,
+  profile,
 };
 
 export default commands;

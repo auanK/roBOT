@@ -72,7 +72,7 @@ export async function handleStart({ sock, message, chatId, senderId }) {
   await registerGroup(groupId, groupName);
 
   for (const id of allPlayers) {
-    const nickname = await getUserName(id);
+    const nickname = await getUserName(id, groupId);
     await registerUser(id, nickname);
   }
 

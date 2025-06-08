@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import { getProfile } from "./profileService.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const usersPath = path.join(__dirname, "../data/users.meta.json");
@@ -23,13 +24,18 @@ export async function saveUsers(data) {
   }
 }
 
+export function normalizeUserId(id) {
+  if (!id) return null;
+  return id.replace("@s.whatsapp.net", "@c.us");
+}
+
 export async function registerUser(userId, pushname) {
   if (!pushname || !userId) return;
 
   const users = await loadUsers();
-  const normalizedId = userId.replace("@s.whatsapp.net", "@c.us");
-  const currentUser = users[normalizedId];
+  const normalizedId = normalizeUserId(userId);
 
+  const currentUser = users[normalizedId];
   if (!currentUser || currentUser.pushname !== pushname) {
     users[normalizedId] = {
       pushname,
@@ -42,18 +48,21 @@ export async function registerUser(userId, pushname) {
   }
 }
 
-export function normalizeUserId(id) {
-  if (!id) return null;
-  return id.replace("@s.whatsapp.net", "@c.us");
-}
-
-export async function getUserName(userId) {
-  const users = await loadUsers();
+export async function getUserName(userId, groupId) {
   const normalizedId = normalizeUserId(userId);
-  const userData = users[normalizedId];
 
+  if (groupId) {
+    const customProfile = await getProfile(groupId, normalizedId);
+    if (customProfile?.nickname) {
+      return customProfile.nickname;
+    }
+  }
+
+  const users = await loadUsers();
+  const userData = users[normalizedId];
   if (userData?.pushname) {
     return userData.pushname;
   }
-  return `Usuário (${userId.slice(0, 4)})`;
+
+  return `Usuário (${(normalizedId || userId).slice(0, 4)})`;
 }

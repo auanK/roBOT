@@ -52,7 +52,7 @@ export async function handleStart({ sock, message, chatId, senderId }) {
 
   for (const id of allPlayerIds) {
     // Pega o nome do usuário
-    const nickname = await getUserName(id, sock);
+    const nickname = await getUserName(id, groupId);
 
     // Inicializa o jogador
     session.players.set(id, {

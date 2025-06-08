@@ -1,4 +1,5 @@
 import { daysOfWeek } from "./constants.js";
+import { getUserName } from "../../utils/userService.js";
 
 function calculateTotals(groupStats, dayFilter = null, hourFilter = null) {
   const userTotals = {};
@@ -20,10 +21,10 @@ function calculateTotals(groupStats, dayFilter = null, hourFilter = null) {
   return userTotals;
 }
 
-export function formatRankingReply(
+export async function formatRankingReply(
   title,
   groupStats,
-  users,
+  groupId,
   dayFilter = null,
   hourFilter = null
 ) {
@@ -35,17 +36,18 @@ export function formatRankingReply(
   }
 
   let reply = `*${title}*\n\n`;
-  sortedUsers.slice(0, 15).forEach(([userId, count], index) => {
+  for (let index = 0; index < Math.min(15, sortedUsers.length); index++) {
+    const [userId, count] = sortedUsers[index];
     const medals = ["🥇", "🥈", "🥉"];
     const prefix = index < 3 ? medals[index] : ` ${index + 1}.`;
-    const userName =
-      users[userId]?.pushname || `Usuário (${userId.slice(0, 4)})`;
+    const userName = await getUserName(userId, groupId);
     reply += `${prefix} *${userName}*: ${count} mensagens\n`;
-  });
+  }
+
   return reply;
 }
 
-export function formatWeeklyChampionsReply(groupStats, users) {
+export async function formatWeeklyChampionsReply(groupStats, groupId) {
   let reply = "📅 *Campeões da Semana (Por Dia)*\n\n";
   for (let i = 0; i < 7; i++) {
     const dayKey = i.toString();
@@ -56,14 +58,14 @@ export function formatWeeklyChampionsReply(groupStats, users) {
 
     if (sortedUsers.length > 0) {
       const [userId, count] = sortedUsers[0];
-      const userName = users[userId]?.pushname || "Desconhecido";
+      const userName = await getUserName(userId, groupId); // ✅
       reply += `• *${daysOfWeek[dayKey]}:* ${userName} (${count} msgs)\n`;
     }
   }
   return reply;
 }
 
-export function formatHourlyChampionsReply(groupStats, users) {
+export async function formatHourlyChampionsReply(groupStats, groupId) {
   let reply = "⏰ *Donos de Cada Hora (Geral)*\n\n";
   for (let i = 0; i < 24; i++) {
     const hourKey = i.toString();
@@ -74,7 +76,7 @@ export function formatHourlyChampionsReply(groupStats, users) {
 
     if (sortedUsers.length > 0) {
       const [userId, count] = sortedUsers[0];
-      const userName = users[userId]?.pushname || "Desconhecido";
+      const userName = await getUserName(userId, groupId); // ✅
       reply += `• *${hourKey.padStart(
         2,
         "0"

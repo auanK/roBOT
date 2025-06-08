@@ -45,7 +45,7 @@ export async function handleStart({ sock, message, chatId, senderId }) {
   await registerGroup(groupId, groupName);
 
   for (const id of allPlayerIds) {
-    const nickname = await getUserName(id, sock); // Usa a nova função para todos
+    const nickname = await getUserName(id, groupId);
     await registerUser(id, nickname);
 
     const hand = [newSession.deck.shift(), newSession.deck.shift()];
