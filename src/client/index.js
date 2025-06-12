@@ -47,15 +47,24 @@ async function connectToWhatsApp() {
   sock.ev.on("creds.update", saveCreds);
 
   sock.ev.on("messages.upsert", async (m) => {
-    const message = m.messages[0];
-    if (message.key.remoteJid === "status@broadcast" || !message.message) {
-      return;
-    }
+    const receivedMessages = m.messages;
     
-    await handleMessage(sock, m);
-  });
+    const unreadMessages = receivedMessages.filter(msg => !msg.key.fromMe).map(msg => msg.key);
+    
+    if (unreadMessages.length > 0) {
+      await sock.readMessages(unreadMessages);
+    }
 
+    for (const message of receivedMessages) {
+        if (message.key.remoteJid === "status@broadcast" || !message.message) {
+            continue;
+        }
+        await handleMessage(sock, message);
+    }
+  });
+  
   return sock;
 }
 
 export { connectToWhatsApp };
+

@@ -54,9 +54,7 @@ async function logMessage(message) {
   );
 }
 
-export default async function handleMessage(sock, m) {
-  const message = m.messages[0];
-
+export default async function handleMessage(sock, message) {
   // Ignora mensagens enviadas pelo próprio bot, de status ou sem conteúdo
   if (
     message.key.fromMe ||
