@@ -47,11 +47,13 @@ export function getSenderId(message) {
 
 // Forma a mensagem de status de vidas dos jogadores e os itens.
 export function formatLivesStatus(playersMap, totalLives) {
-  return Array.from(playersMap.entries()).map(([_, player]) => {
-    const { nickname, lives, items } = player;
-    const hearts = "❤️".repeat(lives);
-    const skulls = "☠️".repeat(Math.max(0, totalLives - lives));
-    const itemList = items?.length ? ` | 🎒 ${items.join(", ")}` : "";
-    return `• ${nickname}: ${hearts}${skulls}${itemList}`;
-  }).join("\n");
+  return Array.from(playersMap.entries())
+    .map(([_, player]) => {
+      const { nickname, lives, items } = player;
+      const hearts = "❤️".repeat(lives);
+      const skulls = "☠️".repeat(Math.max(0, totalLives - lives));
+      const itemList = items?.length ? ` | 🎒 ${items.join(", ")}` : "";
+      return `• ${nickname}: ${hearts}${skulls}${itemList}`;
+    })
+    .join("\n");
 }

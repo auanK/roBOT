@@ -1,10 +1,5 @@
-import scheduleMessageSender from "../utils/scheduledMessages.js";
-import startClimateScheduler from "../utils/scheduledClimate.js";
+import { startSchedulers } from "../services/schedulerService.js";
 
 export default function onReady(sock) {
-  // Agendador de mensagens
-  scheduleMessageSender(sock);
-
-  // Agendador de clima
-  startClimateScheduler(sock);
+  startSchedulers(sock); // Inicia os agendadores de mensagem e clima
 }

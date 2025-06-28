@@ -1,29 +1,18 @@
-import { handleSet, handleDisplay } from "./handlers.js";
+import { set, view } from "./handlers.js";
 
 export default {
   name: "profile",
-  description: "Gerencia e exibe seu perfil no grupo.",
-  usage: "!profile [display|set] [name|desc] [texto]",
+  description: "Gerencia perfis de usuários (apelido e descrição).",
+  usage: "!profile set <nick|desc> <valor> ou !profile (@alguem)",
 
-  run: async ({ sock, message, args, chatId, senderId }) => {
-    if (!chatId.endsWith("@g.us")) {
-      return sock.sendMessage(
-        chatId,
-        {
-          text: "Este comando só pode ser usado em grupos.",
-        },
-        { quoted: message }
-      );
-    }
-
+  run: async ({ args, ...props }) => {
     const subCommand = args[0]?.toLowerCase();
 
-    const handlerParams = { sock, message, args, chatId, senderId };
-
     if (subCommand === "set") {
-      return await handleSet(handlerParams);
-    } else {
-      return await handleDisplay(handlerParams);
+      args.shift();
+      return set({ args, ...props });
     }
+
+    return view(props);
   },
 };

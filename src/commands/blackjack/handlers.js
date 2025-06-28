@@ -1,13 +1,13 @@
 import { getBlackjackSession, resetBlackjackSession } from "./session.js";
 import { createDeck, calculateTotal } from "./utils.js";
 import { dealerPlay, getWinners, isGameOver } from "./engine.js";
-import { addPoints } from "../../utils/statsService.js";
+import { addPoints } from "../../services/statsService.js";
 import {
   registerUser,
   getUserName,
   normalizeUserId,
-} from "../../utils/userService.js";
-import { getGroupAlias, registerGroup } from "../../utils/groupService.js";
+} from "../../services/userService.js";
+import { getGroupAlias, registerGroup } from "../../services/groupService.js";
 
 export async function handleStart({ sock, message, chatId, senderId }) {
   const groupId = await getGroupAlias(chatId);

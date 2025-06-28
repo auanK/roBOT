@@ -1,34 +1,28 @@
 import { daysOfWeek } from "./constants.js";
-import { getUserName } from "../../utils/userService.js";
+import { getUserName } from "../../services/userService.js";
 
-function calculateTotals(groupStats, dayFilter = null, hourFilter = null) {
+function calculateTotals(statsSummary, dayFilter = null, hourFilter = null) {
   const userTotals = {};
-  const daysToIterate = dayFilter ? [dayFilter] : Object.keys(groupStats);
 
-  for (const day of daysToIterate) {
-    if (!groupStats[day]) continue;
-    const hoursToIterate = hourFilter
-      ? [hourFilter]
-      : Object.keys(groupStats[day]);
-    for (const hour of hoursToIterate) {
-      if (!groupStats[day][hour]) continue;
-      for (const userId in groupStats[day][hour]) {
-        if (!userTotals[userId]) userTotals[userId] = 0;
-        userTotals[userId] += groupStats[day][hour][userId];
-      }
-    }
+  for (const summaryRow of statsSummary) {
+    const { userId, dayOfWeek, hour, messageCount } = summaryRow;
+
+    if (dayFilter && dayOfWeek.toString() !== dayFilter) continue;
+    if (hourFilter && hour.toString() !== hourFilter) continue;
+
+    userTotals[userId] = (userTotals[userId] || 0) + messageCount;
   }
   return userTotals;
 }
 
 export async function formatRankingReply(
   title,
-  groupStats,
+  statsSummary,
   groupId,
   dayFilter = null,
   hourFilter = null
 ) {
-  const userTotals = calculateTotals(groupStats, dayFilter, hourFilter);
+  const userTotals = calculateTotals(statsSummary, dayFilter, hourFilter);
   const sortedUsers = Object.entries(userTotals).sort(([, a], [, b]) => b - a);
 
   if (sortedUsers.length === 0) {
@@ -36,8 +30,10 @@ export async function formatRankingReply(
   }
 
   let reply = `*${title}*\n\n`;
-  for (let index = 0; index < Math.min(15, sortedUsers.length); index++) {
-    const [userId, count] = sortedUsers[index];
+  const topUsers = sortedUsers.slice(0, 15);
+
+  for (let index = 0; index < topUsers.length; index++) {
+    const [userId, count] = topUsers[index];
     const medals = ["🥇", "🥈", "🥉"];
     const prefix = index < 3 ? medals[index] : ` ${index + 1}.`;
     const userName = await getUserName(userId, groupId);
@@ -47,36 +43,36 @@ export async function formatRankingReply(
   return reply;
 }
 
-export async function formatWeeklyChampionsReply(groupStats, groupId) {
+export async function formatWeeklyChampionsReply(statsSummary, groupId) {
   let reply = "📅 *Campeões da Semana (Por Dia)*\n\n";
   for (let i = 0; i < 7; i++) {
     const dayKey = i.toString();
-    const userTotals = calculateTotals(groupStats, dayKey);
+    const userTotals = calculateTotals(statsSummary, dayKey);
     const sortedUsers = Object.entries(userTotals).sort(
       ([, a], [, b]) => b - a
     );
 
     if (sortedUsers.length > 0) {
       const [userId, count] = sortedUsers[0];
-      const userName = await getUserName(userId, groupId); // ✅
+      const userName = await getUserName(userId, groupId);
       reply += `• *${daysOfWeek[dayKey]}:* ${userName} (${count} msgs)\n`;
     }
   }
   return reply;
 }
 
-export async function formatHourlyChampionsReply(groupStats, groupId) {
+export async function formatHourlyChampionsReply(statsSummary, groupId) {
   let reply = "⏰ *Donos de Cada Hora (Geral)*\n\n";
   for (let i = 0; i < 24; i++) {
     const hourKey = i.toString();
-    const userTotals = calculateTotals(groupStats, null, hourKey);
+    const userTotals = calculateTotals(statsSummary, null, hourKey);
     const sortedUsers = Object.entries(userTotals).sort(
       ([, a], [, b]) => b - a
     );
 
     if (sortedUsers.length > 0) {
       const [userId, count] = sortedUsers[0];
-      const userName = await getUserName(userId, groupId); // ✅
+      const userName = await getUserName(userId, groupId);
       reply += `• *${hourKey.padStart(
         2,
         "0"

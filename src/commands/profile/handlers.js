@@ -1,80 +1,59 @@
-import { getProfile, setProfileProperty } from "../../utils/profileService.js";
-import { getUserName } from "../../utils/userService.js";
-import { getGroupAlias } from "../../utils/groupService.js";
+import {
+  setProfileProperty,
+  getProfile,
+} from "../../services/profileService.js";
+import { getUserName } from "../../services/userService.js";
 
-export async function handleSet({ sock, message, args, chatId, senderId }) {
-  const property = args[1]?.toLowerCase();
-  const value = args.slice(2).join(" ");
+async function set({ sock, message, chatId, senderId, args }) {
+  const property = args.shift()?.toLowerCase();
+  const value = args.join(" ");
 
-  if (!property || !value) {
+  if (!["nick", "desc"].includes(property)) {
     return sock.sendMessage(
       chatId,
       {
-        text: "❗ Formato incorreto. Use:\n• `!profile set name <seu apelido>`\n• `!profile set desc <sua descrição>`",
+        text: '❌ Propriedade inválida. Use "nick" para apelido ou "desc" para descrição.',
       },
       { quoted: message }
     );
   }
 
-  const groupId = await getGroupAlias(chatId);
+  const propertyName = property === "nick" ? "nickname" : "description";
 
-  if (property === "name" || property === "nome") {
-    if (value.length > 25) {
-      return sock.sendMessage(
-        chatId,
-        { text: "❌ O apelido não pode ter mais de 25 caracteres." },
-        { quoted: message }
-      );
-    }
-    await setProfileProperty(groupId, senderId, "nickname", value);
-    await sock.sendMessage(
-      chatId,
-      { text: `✅ Seu apelido neste grupo foi definido para: *${value}*` },
-      { quoted: message }
-    );
-  } else if (property === "desc" || property === "descricao") {
-    if (value.length > 80) {
-      return sock.sendMessage(
-        chatId,
-        { text: "❌ A descrição não pode ter mais de 80 caracteres." },
-        { quoted: message }
-      );
-    }
-    await setProfileProperty(groupId, senderId, "description", value);
-    await sock.sendMessage(
-      chatId,
-      { text: `✅ Sua descrição neste grupo foi atualizada!` },
-      { quoted: message }
-    );
-  } else {
+  if (!value) {
     return sock.sendMessage(
       chatId,
-      {
-        text: "❌ Propriedade inválida. Use `name` para apelido ou `desc` para descrição.",
-      },
+      { text: `❌ Faltou o valor. Uso: !profile set ${property} <texto>` },
       { quoted: message }
     );
   }
-}
 
-export async function handleDisplay({ sock, message, chatId, senderId }) {
-  const targetId =
-    message.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0] ||
-    senderId;
-  const groupId = await getGroupAlias(chatId);
-
-  const customProfile = await getProfile(groupId, targetId);
-
-  const displayName = await getUserName(targetId, groupId);
-
-  let replyMessage = `👤 *Perfil de ${displayName}*\n\n`;
-  replyMessage += `*Descrição:* ${
-    customProfile?.description || "Nenhuma descrição definida."
-  }\n`;
-
+  await setProfileProperty(chatId, senderId, propertyName, value);
   await sock.sendMessage(
     chatId,
-    { text: replyMessage.trim() },
+    {
+      text: `✅ ${
+        propertyName === "nickname" ? "Apelido" : "Descrição"
+      } atualizada com sucesso!`,
+    },
     { quoted: message }
   );
 }
+
+async function view({ sock, message, chatId, senderId }) {
+  const mentionedJid =
+    message.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0] ||
+    senderId;
+
+  const profile = await getProfile(chatId, mentionedJid);
+  const userName = await getUserName(mentionedJid, chatId);
+
+  const nickname = profile?.nickname || "Não definido";
+  const description = profile?.description || "Não definida";
+
+  const reply = `👤 *Perfil de ${userName}*\n\n*Apelido:* ${nickname}\n*Descrição:* ${description}`;
+
+  await sock.sendMessage(chatId, { text: reply }, { quoted: message });
+}
+
+export { set, view };

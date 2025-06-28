@@ -1,13 +1,13 @@
 import { getShotSession, resetShotSession } from "./session.js";
 import { shoot, nextTurn, getCurrentPlayerId } from "./engine.js";
 import { generateBarrel, formatLivesStatus } from "./utils.js";
-import { addPoints } from "../../utils/statsService.js";
+import { addPoints } from "../../services/statsService.js";
 import {
   registerUser,
   getUserName,
   normalizeUserId,
-} from "../../utils/userService.js";
-import { getGroupAlias, registerGroup } from "../../utils/groupService.js";
+} from "../../services/userService.js";
+import { getGroupAlias, registerGroup } from "../../services/groupService.js";
 
 const totalLives = 3;
 

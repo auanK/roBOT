@@ -5,30 +5,30 @@ import {
 } from "./formatters.js";
 import { daysOfWeek } from "./constants.js";
 
-export function handleStatsRequest(args, groupStats, groupId) {
+export function handleStatsRequest(args, statsSummary, groupId) {
   const arg1 = args[0]?.toLowerCase();
   const arg2 = args[1]?.toLowerCase();
 
   if (!arg1) {
     return formatRankingReply(
       "🏆 Ranking Geral de Mensagens",
-      groupStats,
+      statsSummary,
       groupId
     );
   }
 
   if (arg1 === "week") {
-    return formatWeeklyChampionsReply(groupStats, groupId);
+    return formatWeeklyChampionsReply(statsSummary, groupId);
   }
 
   if (arg1 === "hours") {
-    return formatHourlyChampionsReply(groupStats, groupId);
+    return formatHourlyChampionsReply(statsSummary, groupId);
   }
 
   if (arg1 === "today") {
     const todayKey = new Date().getDay().toString();
     const title = `📊 Ranking de Hoje (${daysOfWeek[todayKey]})`;
-    return formatRankingReply(title, groupStats, groupId, todayKey);
+    return formatRankingReply(title, statsSummary, groupId, todayKey);
   }
 
   if (arg1 === "now") {
@@ -36,13 +36,7 @@ export function handleStatsRequest(args, groupStats, groupId) {
     const todayKey = now.getDay().toString();
     const hourKey = now.getHours().toString();
     const title = `⏰ Ranking da Hora Atual (${daysOfWeek[todayKey]}, ${hourKey}h)`;
-    return formatRankingReply(
-      title,
-      groupStats,
-      groupId,
-      todayKey,
-      hourKey
-    );
+    return formatRankingReply(title, statsSummary, groupId, todayKey, hourKey);
   }
 
   if (daysOfWeek[arg1]) {
@@ -50,17 +44,17 @@ export function handleStatsRequest(args, groupStats, groupId) {
     const dayName = daysOfWeek[dayKey];
     if (arg2 && !isNaN(arg2) && arg2 >= 0 && arg2 < 24) {
       const title = `🗓️ Ranking de ${dayName}, ${arg2}h`;
-      return formatRankingReply(title, groupStats, dayKey, arg2);
+      return formatRankingReply(title, statsSummary, groupId, dayKey, arg2);
     } else {
       const title = `🗓️ Ranking de ${dayName} (Todas as Horas)`;
-      return formatRankingReply(title, groupStats, groupId, dayKey);
+      return formatRankingReply(title, statsSummary, groupId, dayKey);
     }
   }
 
   if (!isNaN(arg1) && arg1 >= 0 && arg1 < 24) {
     const hourKey = parseInt(arg1, 10).toString();
     const title = `⏳ Ranking das ${hourKey}h (Geral)`;
-    return formatRankingReply(title, groupStats, groupId, null, hourKey);
+    return formatRankingReply(title, statsSummary, groupId, null, hourKey);
   }
 
   return "❌ Filtro inválido. Use !help para ver os formatos.";

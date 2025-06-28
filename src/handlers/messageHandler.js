@@ -1,7 +1,7 @@
 import commands from "../commands/index.js";
-import { getGroupAlias, isGroupAuthorized } from "../utils/groupService.js";
-import { recordMessage } from "../utils/messageStatsService.js";
-import { registerUser, normalizeUserId } from "../utils/userService.js";
+import { getGroupAlias, isGroupAuthorized } from "../services/groupService.js";
+import { recordMessage } from "../services/messageStatsService.js";
+import { registerUser, normalizeUserId } from "../services/userService.js";
 
 // Extrai o body de uma mensagem
 function getMessageBody(message) {

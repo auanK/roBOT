@@ -1,6 +1,7 @@
 # modulos do node
 node_modules/
 
+
 # ambiente local
 .env
 
@@ -8,5 +9,9 @@ node_modules/
 auth_info_baileys/
 
 # dados persistentes
-/src/data/*.json
-!/src/data/wordle.words.json
+*.db
+*.db-wal
+*.db-shm
+seed.js
+
+package-lock.json

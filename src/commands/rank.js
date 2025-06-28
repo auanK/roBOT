@@ -1,6 +1,6 @@
-import { loadStats } from "../utils/statsService.js";
-import { loadUsers, getUserName } from "../utils/userService.js";
-import { getGroupAlias } from "../utils/groupService.js";
+import * as db from "../database/database.js";
+import { getUserName } from "../services/userService.js";
+import { getGroupAlias } from "../services/groupService.js";
 
 export default {
   name: "rank",
@@ -12,11 +12,10 @@ export default {
     if (!chatId.endsWith("@g.us")) return;
 
     const groupId = await getGroupAlias(chatId);
-    const gameStats = await loadStats();
-    const users = await loadUsers();
-    const groupStats = gameStats[groupId];
 
-    if (!groupStats || Object.keys(groupStats).length === 0) {
+    const groupStatsSummary = await db.gameStats.getSummaryByGroup(groupId);
+
+    if (!groupStatsSummary || groupStatsSummary.length === 0) {
       return sock.sendMessage(
         chatId,
         {
@@ -27,48 +26,34 @@ export default {
     }
 
     const players = await Promise.all(
-      Object.entries(groupStats).map(async ([userId, games]) => {
-        let totalPoints = 0;
-        let totalWins = 0;
-        const gameWins = {};
-
-        for (const [game, data] of Object.entries(games)) {
-          totalPoints += data.points || 0;
-          totalWins += data.wins || 0;
-          gameWins[game] = data.wins || 0;
-        }
-
-        const name = await getUserName(userId, groupId);
-
-        return {
-          id: userId,
-          name,
-          points: totalPoints,
-          wins: totalWins,
-          perGame: gameWins,
-        };
-      })
+      groupStatsSummary.map(async (playerStats) => ({
+        id: playerStats.userId,
+        name: await getUserName(playerStats.userId, groupId),
+        totalPoints: playerStats.totalPoints,
+        totalWins: playerStats.totalWins,
+      }))
     );
 
     const topPoints = [...players]
-      .sort((a, b) => b.points - a.points)
+      .sort((a, b) => b.totalPoints - a.totalPoints)
       .slice(0, 10);
+
     let pointsRank = "🏅 *Ranking de Pontos:*\n";
     topPoints.forEach((p, i) => {
       const medal =
         i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : ` ${i + 1}.`;
-      pointsRank += `${medal} ${p.name} – ${p.points} pts\n`;
+      pointsRank += `${medal} ${p.name} – ${p.totalPoints} pts\n`;
     });
 
-    const topWins = [...players].sort((a, b) => b.wins - a.wins).slice(0, 10);
+    const topWins = [...players]
+      .sort((a, b) => b.totalWins - a.totalWins)
+      .slice(0, 10);
+
     let winRank = "\n🏆 *Ranking de Vitórias:*\n";
     topWins.forEach((p, i) => {
       const medal =
         i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : ` ${i + 1}.`;
-      const perGameText = Object.entries(p.perGame)
-        .map(([game, wins]) => `${game}: ${wins}`)
-        .join(" | ");
-      winRank += `${medal} ${p.name} – ${p.wins} (${perGameText})\n`;
+      winRank += `${medal} ${p.name} – ${p.totalWins} vitórias\n`;
     });
 
     await sock.sendMessage(

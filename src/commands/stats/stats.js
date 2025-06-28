@@ -1,6 +1,5 @@
-import { getGroupAlias } from "../../utils/groupService.js";
-import { loadMessageStats } from "../../utils/messageStatsService.js";
-import { loadUsers } from "../../utils/userService.js";
+import * as db from "../../database/database.js";
+import { getGroupAlias } from "../../services/groupService.js";
 import { handleStatsRequest } from "./handlers.js";
 
 export default {
@@ -10,15 +9,13 @@ export default {
 
   run: async ({ sock, message, args }) => {
     const chatId = message.key.remoteJid;
-
     if (!chatId.endsWith("@g.us")) return;
 
     const groupId = await getGroupAlias(chatId);
 
-    const allStats = await loadMessageStats();
-    const groupStats = allStats[groupId];
+    const statsSummary = await db.messageLogs.getSummaryByGroup(groupId);
 
-    if (!groupStats) {
+    if (!statsSummary || statsSummary.length === 0) {
       return sock.sendMessage(
         chatId,
         {
@@ -30,7 +27,7 @@ export default {
       );
     }
 
-    const replyMessage = await handleStatsRequest(args, groupStats, groupId);
+    const replyMessage = await handleStatsRequest(args, statsSummary, groupId);
 
     await sock.sendMessage(chatId, { text: replyMessage }, { quoted: message });
   },

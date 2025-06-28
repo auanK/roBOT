@@ -1,21 +1,15 @@
-import {
-  getTodayDate,
-  loadGameData,
-  saveGameData,
-  getValidWords,
-  normalize,
-} from "./utils.js";
+import * as db from "../../database/database.js";
+import { getTodayDate, getValidWords, normalize } from "./utils.js";
 import { getWordleSession, resetWordleSession } from "./session.js";
 import { checkGuess, getFeedback } from "./engine.js";
-import { addPoints } from "../../utils/statsService.js";
+import { addPoints } from "../../services/statsService.js";
 import {
   registerUser,
   getUserName,
   normalizeUserId,
-} from "../../utils/userService.js";
-import { getGroupAlias, registerGroup } from "../../utils/groupService.js";
+} from "../../services/userService.js";
+import { getGroupAlias, registerGroup } from "../../services/groupService.js";
 
-// Inicia uma partida de Wordle
 export async function handleStart({ sock, message, chatId, senderId }) {
   const groupId = await getGroupAlias(chatId);
   const session = getWordleSession(groupId);
@@ -29,8 +23,8 @@ export async function handleStart({ sock, message, chatId, senderId }) {
     );
   }
 
-  const data = await loadGameData();
-  if (data[groupId]?.[today]) {
+  const existingGame = await db.wordleGames.get(groupId, today);
+  if (existingGame) {
     return sock.sendMessage(
       chatId,
       { text: "🛑 O Wordle de hoje já foi iniciado neste grupo." },
@@ -52,8 +46,9 @@ export async function handleStart({ sock, message, chatId, senderId }) {
   const words = await getValidWords();
   const secretWord = words[Math.floor(Math.random() * words.length)];
 
-  if (!data[groupId]) data[groupId] = {};
-  data[groupId][today] = {
+  const newGame = {
+    groupId,
+    date: today,
     word: secretWord,
     guesses: [],
     participants: allPlayers,
@@ -62,11 +57,12 @@ export async function handleStart({ sock, message, chatId, senderId }) {
     scores: Object.fromEntries(allPlayers.map((id) => [id, 0])),
   };
 
+  await db.wordleGames.save(newGame);
+
   session.started = true;
   session.date = today;
   session.participants = allPlayers;
 
-  await saveGameData(data);
   const groupName =
     (await sock.groupMetadata(chatId))?.subject || "Grupo Desconhecido";
   await registerGroup(groupId, groupName);
@@ -85,12 +81,11 @@ export async function handleStart({ sock, message, chatId, senderId }) {
   );
 }
 
-// Lida com um palpite do usuário
 export async function handleGuess({ sock, message, args, chatId, senderId }) {
   const groupId = await getGroupAlias(chatId);
   const session = getWordleSession(groupId);
-  const data = await loadGameData();
-  const game = data[groupId]?.[session.date];
+  const normalizedSenderId = normalizeUserId(senderId);
+  const game = await db.wordleGames.get(groupId, session.date);
 
   if (!game || game.finished) {
     return sock.sendMessage(
@@ -99,7 +94,7 @@ export async function handleGuess({ sock, message, args, chatId, senderId }) {
       { quoted: message }
     );
   }
-  if (!game.participants.includes(senderId)) {
+  if (!game.participants.includes(normalizedSenderId)) {
     return sock.sendMessage(
       chatId,
       { text: "❌ Você não está participando hoje." },
@@ -168,23 +163,18 @@ export async function handleGuess({ sock, message, args, chatId, senderId }) {
   }
 
   if (game.invalidLetters.length) {
-    const letras = [...new Set(game.invalidLetters)]
-      .map((l) => l.toUpperCase())
-      .sort()
-      .join(", ");
+    const letras = [...new Set(game.invalidLetters)].sort().join(", ");
     msg += `\n\n❌ Letras ausentes: ${letras}`;
   }
 
-  await saveGameData(data);
+  await db.wordleGames.save(game);
   return sock.sendMessage(chatId, { text: msg }, { quoted: message });
 }
 
-// Funções de status, reset e ajuda adaptadas
 export async function handleStatus({ sock, message, chatId }) {
   const groupId = await getGroupAlias(chatId);
   const session = getWordleSession(groupId);
-  const data = await loadGameData();
-  const game = data[groupId]?.[session.date];
+  const game = await db.wordleGames.get(groupId, session.date);
 
   if (!game) {
     return sock.sendMessage(
@@ -200,10 +190,7 @@ export async function handleStatus({ sock, message, chatId }) {
   }
 
   if (game.invalidLetters.length) {
-    const letras = [...new Set(game.invalidLetters)]
-      .map((l) => l.toUpperCase())
-      .sort()
-      .join(", ");
+    const letras = [...new Set(game.invalidLetters)].sort().join(", ");
     status += `\n❌ Letras ausentes: ${letras}`;
   }
   return sock.sendMessage(chatId, { text: status }, { quoted: message });
@@ -212,11 +199,9 @@ export async function handleStatus({ sock, message, chatId }) {
 export async function handleReset({ sock, message, chatId }) {
   const groupId = await getGroupAlias(chatId);
   const session = getWordleSession(groupId);
-  const data = await loadGameData();
 
-  if (data[groupId]?.[session.date]) {
-    delete data[groupId][session.date];
-    await saveGameData(data);
+  if (session.date) {
+    await db.wordleGames.delete(groupId, session.date);
   }
 
   resetWordleSession(groupId);
